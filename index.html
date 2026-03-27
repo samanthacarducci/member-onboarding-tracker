@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pavilion — 90-Day Onboarding Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --blue-700:#180A5C;--blue-600:#2B1887;--blue-500:#432CAE;--blue-400:#6D59CF;--blue-300:#998BDF;--blue-200:#CEC6F4;
+  --purple-600:#7F2A97;--purple-500:#A34CBB;--purple-400:#C57FD9;--purple-300:#DEB0EB;--purple-200:#F4E0FA;
+  --pink-500:#FF768F;--pink-400:#FEB1BF;
+  --green:#6EE7B7;--amber:#FCD34D;--red:#F87171;
+  --card:rgba(255,255,255,0.04);--card-border:rgba(206,198,244,0.13);--card-hover:rgba(255,255,255,0.07);
+  --text:var(--purple-200);--text-muted:var(--blue-300);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Poppins',sans-serif;background:var(--blue-700);color:var(--text);min-height:100vh;
+  background-image:radial-gradient(ellipse 60% 40% at 15% 0%,rgba(163,76,187,.2) 0%,transparent 60%),
+  radial-gradient(ellipse 50% 50% at 85% 100%,rgba(109,89,207,.18) 0%,transparent 60%);}
+::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(206,198,244,.2);border-radius:3px;}
+
+#loading-screen{position:fixed;inset:0;background:var(--blue-700);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;z-index:999;gap:20px;}
+.spinner{width:40px;height:40px;border:3px solid rgba(197,127,217,.2);border-top-color:var(--purple-400);
+  border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-text{font-size:14px;font-weight:500;color:var(--text-muted);}
+#error-screen{position:fixed;inset:0;background:var(--blue-700);display:none;flex-direction:column;
+  align-items:center;justify-content:center;z-index:999;gap:14px;padding:40px;text-align:center;}
+.error-title{font-size:18px;font-weight:700;color:var(--pink-400);}
+.error-msg{font-size:13px;color:var(--text-muted);max-width:480px;line-height:1.6;}
+
+.hdr{padding:20px 36px;border-bottom:1px solid var(--card-border);display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;z-index:100;background:rgba(24,10,92,.9);backdrop-filter:blur(12px);}
+.hdr-l{display:flex;align-items:center;gap:14px;}
+.logomark{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--purple-400),var(--blue-400));
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;color:#fff;}
+.hdr-title{font-weight:700;font-size:15px;}
+.hdr-sub{font-size:11px;color:var(--text-muted);margin-top:1px;}
+.hdr-r{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.chip{padding:4px 11px;border-radius:20px;font-size:10.5px;font-weight:600;letter-spacing:.04em;}
+.chip-blue{background:rgba(109,89,207,.22);color:var(--blue-200);border:1px solid rgba(109,89,207,.35);}
+.chip-green{background:rgba(110,231,183,.12);color:var(--green);border:1px solid rgba(110,231,183,.25);}
+.chip-current{background:rgba(197,127,217,.18);color:var(--purple-300);border:1px solid rgba(197,127,217,.3);font-weight:700;}
+.chip-sync{background:rgba(110,231,183,.1);color:var(--green);border:1px solid rgba(110,231,183,.2);
+  display:flex;align-items:center;gap:5px;cursor:pointer;transition:all .2s;}
+.chip-sync:hover{background:rgba(110,231,183,.18);}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.as-of{font-size:11px;color:var(--text-muted);}
+
+.tabs{display:flex;gap:2px;padding:0 36px;border-bottom:1px solid var(--card-border);background:rgba(24,10,92,.6);overflow-x:auto;}
+.tab{padding:12px 18px;font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;}
+.tab:hover{color:var(--text);}.tab.active{color:var(--purple-300);border-bottom-color:var(--purple-400);font-weight:600;}
+
+.main{padding:28px 36px;max-width:1440px;margin:0 auto;}
+.note{background:rgba(223,40,91,.09);border:1px solid rgba(223,40,91,.22);border-radius:10px;
+  padding:11px 16px;font-size:12px;color:var(--pink-400);margin-bottom:24px;display:flex;align-items:flex-start;gap:9px;line-height:1.5;}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:24px;}
+.kpi{background:var(--card);border:1px solid var(--card-border);border-radius:14px;padding:16px;transition:background .2s,transform .2s;}
+.kpi:hover{background:var(--card-hover);transform:translateY(-2px);}
+.kpi-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:7px;}
+.kpi-val{font-size:28px;font-weight:800;line-height:1;}
+.kpi-sub{font-size:10.5px;color:var(--text-muted);margin-top:4px;}
+.c-white{color:var(--text);}.c-purple{color:var(--purple-300);}.c-pink{color:var(--pink-500);}
+.c-blue{color:var(--blue-200);}.c-green{color:var(--green);}.c-amber{color:var(--amber);}.c-red{color:var(--red);}
+
+.sec{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.13em;
+  color:var(--text-muted);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.sec::after{content:'';flex:1;height:1px;background:var(--card-border);}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+.g12{display:grid;grid-template-columns:1fr 2fr;gap:16px;margin-bottom:24px;}
+.g21{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:24px;}
+.panel{background:var(--card);border:1px solid var(--card-border);border-radius:16px;padding:20px;overflow:hidden;}
+.panel-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;}
+.panel-hint{font-size:11px;color:var(--text-muted);font-weight:400;}
+
+/* FUNNEL */
+.funnel{display:flex;flex-direction:column;gap:10px;}
+.f-row{display:flex;align-items:center;gap:12px;}
+.f-name{font-size:11.5px;font-weight:600;width:120px;flex-shrink:0;}
+.f-track{flex:1;height:26px;background:rgba(255,255,255,.05);border-radius:6px;overflow:hidden;}
+.f-bar{height:100%;border-radius:6px;display:flex;align-items:center;padding-left:10px;font-size:11px;font-weight:600;}
+.f-right{display:flex;gap:6px;align-items:center;width:72px;justify-content:flex-end;}
+.f-count{font-size:14px;font-weight:800;}
+.f-pct{font-size:10.5px;color:var(--text-muted);}
+
+/* MILESTONES */
+.ms-list{display:flex;flex-direction:column;gap:14px;}
+.ms-hdr{display:flex;justify-content:space-between;margin-bottom:5px;}
+.ms-name{font-size:12px;font-weight:500;}.ms-stat{font-size:12px;color:var(--text-muted);}
+.ms-bg{height:7px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden;}
+.ms-fill{height:100%;border-radius:4px;}
+
+/* BILLING */
+.billing-list{display:flex;flex-direction:column;gap:18px;}
+.b-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.b-label{font-size:13px;font-weight:600;}
+.b-badge{font-size:10px;padding:3px 8px;border-radius:10px;font-weight:700;}
+.b-risk{background:rgba(223,40,91,.18);color:var(--pink-500);}
+.b-ok{background:rgba(110,231,183,.12);color:var(--green);}
+.b-track{display:flex;gap:2px;height:10px;border-radius:6px;overflow:hidden;}
+.b-seg{height:100%;}
+.b-legend{display:flex;gap:10px;margin-top:7px;flex-wrap:wrap;}
+.b-leg-item{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--text-muted);}
+.leg-dot{width:8px;height:8px;border-radius:2px;}
+
+/* CHAPTERS */
+.ch-list{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;}
+.ch-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(206,198,244,.06);}
+.ch-row:last-child{border-bottom:none;}
+.ch-name{font-size:12px;flex:1;}.ch-count{font-size:12px;font-weight:600;color:var(--blue-200);width:28px;text-align:right;}
+.ch-bar-wrap{width:80px;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;}
+.ch-bar{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--purple-500),var(--blue-400));}
+
+/* CHART LEGEND */
+.chart-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px;}
+.cl-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);}
+.cl-swatch{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+
+/* TABLE */
+.tbl-controls{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.srch{flex:1;min-width:180px;padding:8px 13px;background:rgba(255,255,255,.06);border:1px solid var(--card-border);
+  border-radius:8px;color:var(--text);font-size:13px;font-family:'Poppins',sans-serif;outline:none;transition:border-color .2s;}
+.srch:focus{border-color:var(--blue-300);}.srch::placeholder{color:var(--text-muted);}
+.sel{padding:8px 13px;background:rgba(255,255,255,.06);border:1px solid var(--card-border);
+  border-radius:8px;color:var(--text);font-size:12px;font-family:'Poppins',sans-serif;outline:none;cursor:pointer;}
+.sel option{background:#180A5C;}
+.ms-key{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;padding:10px 14px;
+  background:rgba(255,255,255,.03);border:1px solid var(--card-border);border-radius:10px;}
+.ms-key-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted);}
+.ms-key-num{width:17px;height:17px;border-radius:4px;flex-shrink:0;}
+.tbl-wrap{overflow-x:auto;max-height:480px;overflow-y:auto;}
+.tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.tbl th{text-align:left;padding:9px 11px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--text-muted);border-bottom:1px solid var(--card-border);cursor:pointer;user-select:none;white-space:nowrap;background:var(--card);}
+.tbl th:hover{color:var(--text);}
+.tbl td{padding:10px 11px;border-bottom:1px solid rgba(206,198,244,.06);vertical-align:middle;}
+.tbl tbody tr:hover{background:rgba(255,255,255,.03);}
+.tbl tbody tr:last-child td{border-bottom:none;}
+
+/* TIER PILLS */
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;}
+.dot{width:5px;height:5px;border-radius:50%;}
+.p-ns{background:rgba(206,198,244,.1);color:var(--blue-200);}   .p-ns .dot{background:var(--blue-200);}
+.p-ip{background:rgba(197,127,217,.18);color:var(--purple-300);}.p-ip .dot{background:var(--purple-400);}
+.p-fa{background:rgba(110,231,183,.14);color:var(--green);}     .p-fa .dot{background:var(--green);}
+.p-ar{background:rgba(252,211,77,.15);color:var(--amber);}      .p-ar .dot{background:var(--amber);}
+.p-ch{background:rgba(248,113,113,.12);color:var(--red);}       .p-ch .dot{background:var(--red);}
+
+.id-cell{font-family:monospace;font-size:11px;color:var(--text-muted);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ms-dots{display:flex;gap:3px;}
+.ms-dot{width:17px;height:17px;border-radius:4px;}
+.ms-dot-n{background:rgba(255,255,255,.06);}
+.ms-dot-cancel{background:rgba(253,164,175,.3);border:1.5px solid #FDA4AF;border-radius:50%;}
+.ms-dot-churn{background:#F87171;border:1.5px solid #F87171;border-radius:50%;}
+/* Tier pills */
+.p-ftl{background:rgba(252,211,77,.15);color:var(--amber);}      .p-ftl .dot{background:var(--amber);}
+.p-ar2{background:rgba(253,164,175,.15);color:#FDA4AF;}            .p-ar2 .dot{background:#FDA4AF;}
+.p-cr{background:rgba(253,164,175,.15);color:#FDA4AF;}            .p-cr .dot{background:#FDA4AF;}
+/* Saved badge */
+.saved-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:10px;
+  background:rgba(110,231,183,.15);color:var(--green);font-size:10px;font-weight:600;margin-left:5px;}
+/* KPI clickable */
+.kpi{cursor:pointer;}
+/* Drilldown modal */
+#drilldown-modal{position:fixed;inset:0;z-index:500;display:none;align-items:flex-end;}
+#drilldown-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);}
+#drilldown-panel{position:relative;width:100%;max-height:70vh;background:#1E1060;border-top:1px solid var(--card-border);
+  border-radius:16px 16px 0 0;display:flex;flex-direction:column;overflow:hidden;}
+#drilldown-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;
+  border-bottom:1px solid var(--card-border);flex-shrink:0;}
+#drilldown-title{font-size:14px;font-weight:700;color:var(--text);}
+#drilldown-close{background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;padding:0 4px;}
+#drilldown-close:hover{color:var(--text);}
+#drilldown-body{overflow-y:auto;padding:0 20px 20px;}
+.tbl-footer{padding:10px 0;font-size:11px;color:var(--text-muted);text-align:center;}
+
+/* WAITLIST */
+.wl-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+.wl-stat{background:var(--card);border:1px solid var(--card-border);border-radius:14px;padding:16px;}
+.wl-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:7px;}
+.wl-val{font-size:26px;font-weight:800;line-height:1;}
+.wl-sub{font-size:10.5px;color:var(--text-muted);margin-top:4px;}
+
+/* AI CHAT */
+.chat-msgs{min-height:200px;max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;margin-bottom:16px;}
+.msg{max-width:88%;padding:12px 15px;border-radius:12px;font-size:13px;line-height:1.55;}
+.msg-user{align-self:flex-end;background:linear-gradient(135deg,var(--blue-500),var(--purple-600));color:#fff;border-bottom-right-radius:4px;}
+.msg-ai{align-self:flex-start;background:rgba(255,255,255,.06);color:var(--text);border-bottom-left-radius:4px;border:1px solid var(--card-border);}
+.msg-ai.loading{color:var(--text-muted);}
+.chat-input-row{display:flex;gap:10px;}
+.chat-input{flex:1;padding:11px 15px;background:rgba(255,255,255,.06);border:1px solid var(--card-border);border-radius:10px;color:var(--text);font-size:13px;font-family:'Poppins',sans-serif;outline:none;}
+.chat-input:focus{border-color:var(--purple-400);}.chat-input::placeholder{color:var(--text-muted);}
+.send-btn{padding:11px 20px;background:linear-gradient(135deg,var(--blue-500),var(--purple-600));border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'Poppins',sans-serif;}
+.send-btn:disabled{opacity:.5;cursor:not-allowed;}
+.api-key-note{font-size:11.5px;color:var(--text-muted);margin-bottom:12px;line-height:1.5;}
+.api-key-row{display:flex;gap:8px;margin-bottom:14px;}
+.api-key-input{flex:1;padding:9px 13px;background:rgba(255,255,255,.06);border:1px solid var(--card-border);border-radius:8px;color:var(--text);font-size:12px;font-family:'Poppins',sans-serif;outline:none;}
+.key-btn{padding:9px 16px;background:rgba(109,89,207,.3);border:1px solid rgba(109,89,207,.5);border-radius:8px;color:var(--blue-200);font-size:12px;font-weight:600;cursor:pointer;font-family:'Poppins',sans-serif;}
+.suggested-qs{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;}
+.sq{padding:6px 12px;background:rgba(255,255,255,.05);border:1px solid var(--card-border);border-radius:20px;font-size:11px;color:var(--text-muted);cursor:pointer;transition:all .2s;}
+.sq:hover{background:rgba(255,255,255,.09);color:var(--text);}
+
+canvas{max-width:100%;}
+@media(max-width:1200px){.kpi-row{grid-template-columns:repeat(4,1fr);}  .g12,.g21{grid-template-columns:1fr;}}
+@media(max-width:700px){.kpi-row{grid-template-columns:repeat(2,1fr);}.g2,.g12,.g21{grid-template-columns:1fr;}.hdr{padding:16px 18px;}.main{padding:18px;}.tabs{padding:0 18px;}}
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <div class="loading-text">Loading live cohort data…</div>
+</div>
+<div id="error-screen">
+  <div class="error-title">⚠️ Could not load data</div>
+  <div class="error-msg" id="error-msg"></div>
+</div>
+
+<div id="app" style="display:none;">
+  <header class="hdr">
+    <div class="hdr-l">
+      <div class="logomark">P</div>
+      <div>
+        <div class="hdr-title">90-Day Executive Onboarding</div>
+        <div class="hdr-sub">Cohort launched Feb 15, 2026 · Target Y1 Retention: 90%</div>
+      </div>
+    </div>
+    <div class="hdr-r">
+      <span class="chip chip-current" id="current-retention-chip">Current: —%</span>
+      <span class="chip chip-green">Target: 90%</span>
+      <span class="chip chip-sync" onclick="refreshData()"><span class="sync-dot"></span>Live Data</span>
+      <span class="as-of" id="as-of-date"></span>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="overview">Overview</div>
+    <div class="tab" data-tab="members">Member Detail</div>
+    <div class="tab" data-tab="risk">At-Risk &amp; Churned</div>
+    <div class="tab" data-tab="waitlist">Waitlist</div>
+    <div class="tab" data-tab="ai">Ask Claude</div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div id="tab-overview" class="main">
+    <div class="note">
+      ℹ️ <span><strong>Milestone 1</strong> uses <em>Touched by Sales</em> or <em>Onboarding Call</em>. <strong>Failure to Launch</strong> = 60+ days in, ≤3 milestones. <strong>At Risk</strong> = cancel has been requested (future cancel date). <strong>Churned</strong> = cancel date has passed or Churned On is set. <strong>Saved</strong> = had a cancel request but was retained. <strong>Slack</strong> requires 2+ messages (Last 12 Months).</span>
+    </div>
+    <div class="kpi-row" id="kpi-row"></div>
+    <div class="sec">Activation Tiers &amp; Milestones</div>
+    <div class="g12">
+      <div class="panel">
+        <div class="panel-title">Activation Tiers <span class="panel-hint" id="funnel-hint"></span></div>
+        <div class="funnel" id="funnel"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Milestone Completion <span class="panel-hint">% of all members</span></div>
+        <div class="ms-list" id="ms-list"></div>
+      </div>
+    </div>
+    <div class="sec">Billing &amp; Chapter Breakdown</div>
+    <div class="g21">
+      <div class="panel">
+        <div class="panel-title">Monthly vs Annual — Tier Distribution</div>
+        <div class="billing-list" id="billing-list"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Top Chapters <span class="panel-hint">by member count</span></div>
+        <div class="ch-list" id="ch-list"></div>
+      </div>
+    </div>
+    <div class="sec">Cohort Timeline</div>
+    <div class="panel">
+      <div class="panel-title">Weekly Intake by Activation Tier</div>
+      <canvas id="timeline-chart" height="90"></canvas>
+      <div class="chart-legend" id="timeline-legend"></div>
+    </div>
+  </div>
+
+  <!-- MEMBER DETAIL -->
+  <div id="tab-members" class="main" style="display:none;">
+    <div class="panel">
+      <div class="panel-title">All Members <span class="panel-hint" id="tbl-count"></span></div>
+      <div class="tbl-controls">
+        <input class="srch" id="tbl-search" placeholder="Search by ID or chapter…" oninput="renderTable()">
+        <select class="sel" id="f-billing" onchange="renderTable()">
+          <option value="">All Billing</option>
+          <option value="Monthly">Monthly</option>
+          <option value="Yearly">Yearly</option>
+        </select>
+        <select class="sel" id="f-tier" onchange="renderTable()">
+          <option value="">All Tiers</option>
+          <option value="Not Started">Not Started</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Fully Activated">Fully Activated</option>
+          <option value="Failure to Launch">Failure to Launch</option>
+          <option value="At Risk">At Risk (Cancel Requested)</option>
+          <option value="Churned">Churned</option>
+        </select>
+        <select class="sel" id="f-milestone" onchange="renderTable()">
+          <option value="">All Milestones</option>
+          <option value="hasConcierge">✓ Has Sales Touch / Onboarding</option>
+          <option value="no-hasConcierge">✗ Missing Sales Touch</option>
+          <option value="hasInitiation">✓ Has Initiation Call</option>
+          <option value="no-hasInitiation">✗ Missing Initiation Call</option>
+          <option value="hasDinner">✓ Has Dinner</option>
+          <option value="no-hasDinner">✗ Missing Dinner</option>
+          <option value="hasSlack">✓ Has Slack (2+ msgs in last 12 months)</option>
+          <option value="no-hasSlack">✗ Missing Slack</option>
+          <option value="hasCourse">✓ Has Course</option>
+          <option value="no-hasCourse">✗ Missing Course</option>
+        </select>
+      </div>
+      <div class="ms-key" id="ms-key"></div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr>
+            <th onclick="sortTable('id')">Member ID ↕</th>
+            <th onclick="sortTable('startDate')">Start Date ↕</th>
+            <th onclick="sortTable('chapter')">Chapter ↕</th>
+            <th onclick="sortTable('billing')">Billing ↕</th>
+            <th onclick="sortTable('tier')">Tier ↕</th>
+            <th>Milestones</th>
+            <th onclick="sortTable('milestoneCount')">Score ↕</th>
+            <th onclick="sortTable('daysIn')">Days In ↕</th>
+          </tr></thead>
+          <tbody id="tbl-body"></tbody>
+        </table>
+      </div>
+      <div class="tbl-footer" id="tbl-footer"></div>
+    </div>
+  </div>
+
+  <!-- AT RISK & CHURNED -->
+  <div id="tab-risk" class="main" style="display:none;">
+    <div class="g2" style="margin-bottom:24px;">
+      <div class="panel">
+        <div class="panel-title">🚀 Failure to Launch <span class="panel-hint" id="risk-count"></span></div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>Member ID</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Days In</th><th>Score</th><th>Milestones</th></tr></thead>
+          <tbody id="risk-body"></tbody>
+        </table></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">⚠️ At Risk — Cancel Requested <span class="panel-hint" id="cancel-count"></span></div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>Member ID</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Score</th><th>Cancel Date</th><th>Saved?</th></tr></thead>
+          <tbody id="cancel-body"></tbody>
+        </table></div>
+      </div>
+    </div>
+    <div class="g2" style="margin-bottom:24px;">
+      <div class="panel">
+        <div class="panel-title">🚪 Churned Members <span class="panel-hint" id="churn-count"></span></div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>Member ID</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Churned On</th></tr></thead>
+          <tbody id="churn-body"></tbody>
+        </table></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Monthly Members — 3 or Fewer Milestones <span class="panel-hint">highest churn risk group</span></div>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>Member ID</th><th>Start Date</th><th>Chapter</th><th>Days In</th><th>Score</th><th>Milestones</th></tr></thead>
+          <tbody id="monthly-risk-body"></tbody>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WAITLIST -->
+  <div id="tab-waitlist" class="main" style="display:none;">
+    <div class="wl-stat-row" id="wl-stats"></div>
+    <div class="sec">Waitlist Members</div>
+    <div class="panel" style="margin-bottom:24px;">
+      <div class="panel-title">All Waitlisted Members <span class="panel-hint" id="wl-tbl-count"></span></div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>Member ID</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Waitlist Type</th><th>Invited Off</th><th>Days to Join</th><th>Tier</th><th>Score</th></tr></thead>
+        <tbody id="wl-body"></tbody>
+      </table></div>
+    </div>
+    <div class="sec">Waitlist — Activation Milestones</div>
+    <div class="g12">
+      <div class="panel">
+        <div class="panel-title">Waitlist Activation Tiers</div>
+        <div class="funnel" id="wl-funnel"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Waitlist Milestone Completion</div>
+        <div class="ms-list" id="wl-ms-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ASK CLAUDE -->
+  <div id="tab-ai" class="main" style="display:none;">
+    <div class="panel">
+      <div class="panel-title">Ask Claude About Your Cohort</div>
+      <div class="api-key-note">Sends your cohort data to Claude for analysis. API key stored in memory only for this session.</div>
+      <div class="api-key-row">
+        <input class="api-key-input" id="api-key-input" type="password" placeholder="sk-ant-api03-…">
+        <button class="key-btn" onclick="setApiKey()">Set Key</button>
+      </div>
+      <div class="suggested-qs">
+        <div class="sq" onclick="askSuggested(this)">Which members are most at risk of churning?</div>
+        <div class="sq" onclick="askSuggested(this)">How are monthly vs annual members tracking?</div>
+        <div class="sq" onclick="askSuggested(this)">Which milestones are lagging most?</div>
+        <div class="sq" onclick="askSuggested(this)">What actions should we prioritize this week?</div>
+        <div class="sq" onclick="askSuggested(this)">How are waitlisted members activating vs non-waitlisted?</div>
+      </div>
+      <div class="chat-msgs" id="chat-msgs">
+        <div class="msg msg-ai">👋 Hi! I have live context on your onboarding cohort including waitlist data. Ask me anything.</div>
+      </div>
+      <div class="chat-input-row">
+        <input class="chat-input" id="chat-input" placeholder="Ask about your cohort…" onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="send-btn" id="send-btn" onclick="sendChat()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DRILLDOWN MODAL -->
+  <div id="drilldown-modal">
+    <div id="drilldown-overlay" onclick="closeDrilldown()"></div>
+    <div id="drilldown-panel">
+      <div id="drilldown-header">
+        <div id="drilldown-title"></div>
+        <button id="drilldown-close" onclick="closeDrilldown()">×</button>
+      </div>
+      <div id="drilldown-body"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTf6Z41iphxefgUgrLbDCDRxe0KG_Z1bfOnZlHWODsyZ-fkO7vXStFnqjGRTLCkQX9dQ_87expktBWf/pub?gid=0&single=true&output=csv';
+
+// ── TIER CONFIG: Not Started, In Progress, Fully Activated, At Risk, Churned
+const TIERS       = ['Not Started','In Progress','Fully Activated','Failure to Launch','At Risk','Churned'];
+const TIER_COLORS = {
+  'Not Started':      '#CEC6F4',
+  'In Progress':      '#C57FD9',
+  'Fully Activated':  '#6EE7B7',
+  'Failure to Launch':'#FCD34D',
+  'At Risk':          '#FDA4AF',
+  'Churned':          '#F87171'
+};
+const TIER_BG = {
+  'Not Started':      'rgba(206,198,244,.12)',
+  'In Progress':      'rgba(197,127,217,.18)',
+  'Fully Activated':  'rgba(110,231,183,.14)',
+  'Failure to Launch':'rgba(252,211,77,.15)',
+  'At Risk':          'rgba(253,164,175,.15)',
+  'Churned':          'rgba(248,113,113,.12)'
+};
+
+const MS_LABELS = ['Touched by Sales','Onboarding Call','Initiation Call','Chapter Dinner','Slack (2+ in 12mo)','Course Enrolled'];
+const MS_COLORS = ['#B197FC','#998BDF','#C57FD9','#FF768F','#FCD34D','#6EE7B7'];
+
+let RAW = [], timelineChart = null, sortCol = 'startDate', sortAsc = false, apiKey = '';
+
+// ── CSV PARSER
+function parseCSV(text) {
+  const lines = text.split('\n');
+  let headerIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes('Membership Start Date')) { headerIdx = i; break; }
+  }
+  if (headerIdx === -1) throw new Error('Could not find headers');
+  const headers = splitLine(lines[headerIdx]);
+  const rows = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const vals = splitLine(line);
+    if (vals.every(v => !v)) continue;
+    const obj = {};
+    headers.forEach((h, idx) => { obj[h.trim()] = (vals[idx] || '').trim(); });
+    rows.push(obj);
+  }
+  return rows;
+}
+function splitLine(line) {
+  const r = []; let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') inQ = !inQ;
+    else if (c === ',' && !inQ) { r.push(cur); cur = ''; }
+    else cur += c;
+  }
+  r.push(cur); return r;
+}
+
+// ── CELL HELPERS
+function cellTrue(row, key) {
+  const v = (row[key] || '').toString().trim();
+  if (!v || v.toLowerCase() === 'false' || v === '0' || v === '#ERROR!' || v === '#Error!' || v === 'N/A') return false;
+  if (v.toLowerCase() === 'true') return true;
+  // Handle numbers with commas (e.g. "3,265")
+  const n = parseFloat(v.replace(/,/g, ''));
+  if (!isNaN(n)) return n > 0;
+  return v.length > 0;
+}
+function cellNotBlank(row, key) {
+  const v = (row[key] || '').toString().trim();
+  if (!v || v.toLowerCase() === 'false' || v === '#ERROR!' || v === '#Error!' || v === 'N/A') return false;
+  return v.length > 0;
+}
+function parseNum(v) {
+  if (!v) return 0;
+  const n = parseFloat((v + '').replace(/,/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+// ── MILESTONE LOGIC
+function getMilestones(r) {
+  const hasSalesTouched   = cellTrue(r, 'Touched by Sales - Meeting');
+  const hasOnboardingCall = cellTrue(r, 'Onboarding Call');
+  const hasConcierge      = hasSalesTouched || hasOnboardingCall;
+  const hasInitiation     = cellNotBlank(r, 'Initiation Meeting Date');
+  const hasDinner     = cellNotBlank(r, 'Date of First Dinner') || parseNum(r['No. of Dinners Registered']) > 0 || parseNum(r['No. of Dinners Attended']) > 0;
+  // Slack: 2+ messages in Last 12 Months (primary), fall back to All Time if blank
+  const slack12mo     = parseNum(r['Slack Messages (Last 12 Months)']);
+  const slackAllTime  = parseNum(r['Slack Messages (All Time)']);
+  const hasSlack      = slack12mo >= 2 || (slack12mo === 0 && slackAllTime >= 2);
+  // Course: Days to enrollment not blank (0 counts) OR enrolled > 0
+  const hasCourse     = cellNotBlank(r, 'No. of Days to First Learn Enrollment') || parseNum(r['No. of Live Courses Enrolled In']) > 0;
+  const milestoneCount = [hasConcierge, hasInitiation, hasDinner, hasSlack, hasCourse].filter(Boolean).length;
+  return { hasSalesTouched, hasOnboardingCall, hasConcierge, hasInitiation, hasDinner, hasSlack, hasCourse, milestoneCount };
+}
+
+// ── TIER LOGIC
+// At Risk: 6+ days in AND 3 or fewer milestones (unless churned or fully activated)
+function getTier(r, ms, daysIn) {
+  const today = new Date();
+  // If saved, skip cancel/churn — fall through to normal tier
+  if (!r.isSaved) {
+    // Churned On date = definitely gone
+    if (r.isChurned) return 'Churned';
+    // Member At Risk For = scheduled cancel date
+    if (r.memberAtRiskFor) {
+      const cancelDate = new Date(r.memberAtRiskFor);
+      if (!isNaN(cancelDate)) {
+        if (cancelDate <= today) return 'Churned';        // date passed = churned
+        if (cancelDate > today)  return 'At Risk'; // future = scheduled to leave (cancel requested)
+      }
+    }
+  }
+  if (ms.milestoneCount === 5) return 'Fully Activated';
+  if (daysIn >= 60 && ms.milestoneCount <= 3) return 'Failure to Launch';
+  if (ms.hasConcierge || ms.hasInitiation) return 'In Progress';
+  return 'Not Started';
+}
+
+// ── PROCESS ROWS
+function processRows(csvRows) {
+  const today = new Date();
+  return csvRows
+    .filter(r => r['Membership Start Date'] && r['Membership Start Date'].length > 0)
+    .map(r => {
+      const ms = getMilestones(r);
+      const startDate = r['Membership Start Date'] || '';
+      const startDt = new Date(startDate);
+      const daysIn = isNaN(startDt) ? 0 : Math.floor((today - startDt) / 86400000);
+      const isChurned       = cellNotBlank(r, 'Churned On');
+      const isAtRisk        = cellNotBlank(r, 'Member Became At Risk On');
+      const memberAtRiskFor = r['Member At Risk For'] || '';
+      const savedOn         = r['Saved On'] || '';
+      const isSaved         = savedOn.length > 0;
+      const obj = {
+        id:           r['Chargebee Customer ID'] || '—',
+        startDate,
+        chapter:      r['Location (Chapter)'] || '',
+        billing:      r['Current Term Period'] || '',
+        subType:      r['Subscription Type'] || '',
+        isChurned, isAtRisk, isSaved, daysIn,
+        atRiskDate:      r['Member Became At Risk On'] || '',
+        churnedDate:     r['Churned On'] || '',
+        memberAtRiskFor, savedOn,
+        slackMessages:   parseNum(r['Slack Messages (All Time)']),
+        totalReferrals:  parseNum(r['Total Referrals']),
+        waitlist:        r['Waitlist'] || '',
+        invitedOff:      r['Invited Off Waitlist'] || '',
+        ...ms
+      };
+      obj.tier = getTier(obj, ms, daysIn);
+      return obj;
+    });
+}
+
+// ── FETCH
+async function fetchData() {
+  // Try direct fetch first, fall back to CORS proxy if blocked
+  const direct = CSV_URL + '&cachebust=' + Date.now();
+  const proxy  = 'https://api.allorigins.win/get?url=' + encodeURIComponent(CSV_URL);
+  let text;
+  try {
+    const resp = await fetch(direct, {cache:'no-store'});
+    if (!resp.ok) throw new Error('direct ' + resp.status);
+    text = await resp.text();
+    if (!text.includes('Membership Start Date')) throw new Error('bad response');
+  } catch(e) {
+    // Fall back to proxy
+    const resp2 = await fetch(proxy);
+    if (!resp2.ok) throw new Error('proxy HTTP ' + resp2.status);
+    const j = await resp2.json();
+    text = j.contents;
+  }
+  return parseCSV(text);
+}
+
+async function refreshData() {
+  document.querySelector('.sync-dot').style.background = '#FCD34D';
+  try {
+    RAW = processRows(await fetchData());
+    renderAll();
+    document.querySelector('.sync-dot').style.background = '#6EE7B7';
+    document.getElementById('as-of-date').textContent = 'Updated ' + new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  } catch(e) {
+    document.querySelector('.sync-dot').style.background = '#F87171';
+  }
+}
+
+async function init() {
+  try {
+    RAW = processRows(await fetchData());
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('as-of-date').textContent = 'Updated ' + new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    try {
+      renderAll();
+    } catch(re) {
+      console.error('Render error:', re);
+      // Show app anyway - partial render is better than loading forever
+    }
+    setInterval(refreshData, 4 * 60 * 60 * 1000);
+  } catch(e) {
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('error-screen').style.display = 'flex';
+    document.getElementById('error-msg').textContent = 'Error loading data: ' + e.message + '. Check that your Google Sheet is published to web.';
+  }
+}
+
+function renderAll() {
+  renderKPIs();
+  renderFunnel();
+  renderMilestones();
+  renderBilling();
+  renderChapters();
+  renderTimeline();
+  renderMsKey();
+  renderWaitlist();
+  if (document.getElementById('tab-members').style.display !== 'none') renderTable();
+  if (document.getElementById('tab-risk').style.display !== 'none') renderRisk();
+}
+
+// TABS
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    ['overview','members','risk','waitlist','ai'].forEach(id => document.getElementById('tab-'+id).style.display='none');
+    document.getElementById('tab-'+t.dataset.tab).style.display = 'block';
+    if (t.dataset.tab === 'members') renderTable();
+    if (t.dataset.tab === 'risk') renderRisk();
+  });
+});
+
+// ── HELPERS
+function tierClass(t){return{'Not Started':'p-ns','In Progress':'p-ip','Fully Activated':'p-fa','Failure to Launch':'p-ftl','At Risk':'p-ar2','Churned':'p-ch'}[t]||'p-ns';}
+function tierPill(t){return`<span class="pill ${tierClass(t)}"><span class="dot"></span>${t}</span>`;}
+function fmt(d){if(!d||d==='NaN')return'—';try{const p=new Date(d);return isNaN(p)?d:p.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});}catch{return d;}}
+function idCell(id){return`<span class="id-cell" title="${id}">${id}</span>`;}
+function msDotsHtml(r){
+  // 6 milestone boxes: Sales Touch | Onboarding Call | Initiation | Dinner | Slack | Course
+  const keys = ['hasSalesTouched','hasOnboardingCall','hasInitiation','hasDinner','hasSlack','hasCourse'];
+  const milestones = keys.map((k,i)=>r[k]
+    ? `<div class="ms-dot" title="${MS_LABELS[i]}" style="background:${MS_COLORS[i]}33;border:1.5px solid ${MS_COLORS[i]};"></div>`
+    : `<div class="ms-dot ms-dot-n" title="${MS_LABELS[i]}"></div>`
+  ).join('');
+
+  // Churned circle (solid opaque red)
+  const cancelDot2 = r.tier === 'At Risk'
+    ? `<div class="ms-dot ms-dot-cancel" title="At Risk — Cancel Requested"></div>`
+    : `<div class="ms-dot ms-dot-n" style="border-radius:50%;" title="Not At Risk"></div>`;
+  const churnDot = r.tier === 'Churned'
+    ? `<div class="ms-dot ms-dot-churn" title="Churned"></div>`
+    : `<div class="ms-dot ms-dot-n" style="border-radius:50%;" title="Not Churned"></div>`;
+  return milestones + cancelDot2 + churnDot;
+}
+
+// ── KPIs
+function renderKPIs() {
+  const total    = RAW.length;
+  const monthly  = RAW.filter(r=>r.billing==='Monthly').length;
+  const churned  = RAW.filter(r=>r.tier==='Churned').length;
+  const ftl      = RAW.filter(r=>r.tier==='Failure to Launch').length;
+  const fullyAct = RAW.filter(r=>r.tier==='Fully Activated').length;
+  const referrals= RAW.filter(r=>r.totalReferrals >= 1).length;
+  // Current retention = non-churned / total * 100
+  const currentRetPct = total > 0 ? Math.round(((total - churned) / total) * 100) : 0;
+  document.getElementById('current-retention-chip').textContent = `Current: ${currentRetPct}%`;
+
+  const el = document.getElementById('kpi-row');
+  const saved     = RAW.filter(r=>r.isSaved).length;
+  const cancelReq = RAW.filter(r=>r.tier==='At Risk').length;
+  const kpiList = [
+    {label:'Total Members',      val:total,     sub:'Since Feb 15',                                            cls:'c-white',  fn:()=>RAW},
+    {label:'Monthly Members',    val:monthly,   sub:`${total?Math.round(monthly/total*100):0}% — highest risk`,cls:'c-amber',  fn:()=>RAW.filter(r=>r.billing==='Monthly')},
+    {label:'Fully Activated',    val:fullyAct,  sub:`${total?Math.round(fullyAct/total*100):0}% all 5 milestones`,cls:'c-green',fn:()=>RAW.filter(r=>r.tier==='Fully Activated')},
+    {label:'Failure to Launch',  val:ftl,       sub:'60+ days, ≤3 milestones',                                 cls:'c-amber',  fn:()=>RAW.filter(r=>r.tier==='Failure to Launch')},
+    {label:'At Risk',            val:cancelReq, sub:'Cancel requested',                                        cls:'c-pink',   fn:()=>RAW.filter(r=>r.tier==='At Risk')},
+    {label:'Churned',            val:churned,   sub:`${total?Math.round(churned/total*100):0}% of cohort`,     cls:'c-red',    fn:()=>RAW.filter(r=>r.tier==='Churned')},
+    {label:'Made a Referral',    val:referrals, sub:`${total?Math.round(referrals/total*100):0}% of members`,  cls:'c-purple', fn:()=>RAW.filter(r=>r.totalReferrals>=1)},
+    {label:'Saved',              val:saved,     sub:'Retained after cancel',                                   cls:'c-green',  fn:()=>RAW.filter(r=>r.isSaved)},
+  ];
+  el.innerHTML = '';
+  kpiList.forEach(k=>{
+    const div = document.createElement('div');
+    div.className = 'kpi';
+    div.title = 'Click to see members';
+    div.innerHTML = `<div class="kpi-label">${k.label}</div><div class="kpi-val ${k.cls}">${k.val}</div><div class="kpi-sub">${k.sub}</div>`;
+    div.addEventListener('click', ()=>showDrilldown(k.label, k.fn()));
+    el.appendChild(div);
+  });
+}
+
+// ── FUNNEL
+function renderFunnel(subset, elId='funnel', hintId='funnel-hint') {
+  const data = subset || RAW;
+  const total = data.length;
+  const tierCounts = {};
+  TIERS.forEach(t => tierCounts[t] = 0);
+  data.forEach(r => { if (tierCounts[r.tier] !== undefined) tierCounts[r.tier]++; });
+  const maxT = Math.max(...Object.values(tierCounts), 1);
+  const el = document.getElementById(elId); el.innerHTML = '';
+  if (hintId) document.getElementById(hintId).textContent = total + ' members';
+  TIERS.forEach(t => {
+    const c = tierCounts[t]||0, pct = total?Math.round(c/total*100):0, barW = Math.round(c/maxT*100);
+    const fRow = document.createElement('div');
+    fRow.className = 'f-row';
+    fRow.innerHTML = `<div class="f-name" style="color:${TIER_COLORS[t]}">${t}</div>
+      <div class="f-track"><div class="f-bar" style="width:${barW}%;background:${TIER_BG[t]};color:${TIER_COLORS[t]};border-left:3px solid ${TIER_COLORS[t]};"></div></div>
+      <div class="f-right"><span class="f-count" style="color:${TIER_COLORS[t]}">${c}</span><span class="f-pct">${pct}%</span></div>`;
+    if (c > 0) {
+      const tier = t;
+      fRow.style.cursor = 'pointer';
+      fRow.addEventListener('click', () => showDrilldown(tier, data.filter(r=>r.tier===tier)));
+    }
+    el.appendChild(fRow);
+  });
+  return tierCounts;
+}
+
+// ── MILESTONES
+function renderMilestones(subset, elId='ms-list') {
+  const data = subset || RAW;
+  const total = data.length;
+  const keys = ['hasSalesTouched','hasOnboardingCall','hasInitiation','hasDinner','hasSlack','hasCourse'];
+  const el = document.getElementById(elId); el.innerHTML = '';
+  const msFieldKeys = ['hasSalesTouched','hasOnboardingCall','hasInitiation','hasDinner','hasSlack','hasCourse'];
+  keys.forEach((k,i) => {
+    const count = data.filter(r=>r[k]).length, pct = total?Math.round(count/total*100):0;
+    const div = document.createElement('div');
+    div.innerHTML = `<div class="ms-hdr"><span class="ms-name">${MS_LABELS[i]}</span><span class="ms-stat">${count} / ${total} (${pct}%)</span></div><div class="ms-bg"><div class="ms-fill" style="width:${pct}%;background:${MS_COLORS[i]};"></div></div>`;
+    if (count > 0) {
+      const fieldKey = msFieldKeys[i];
+      div.querySelector('.ms-bg').style.cursor = 'pointer';
+      div.querySelector('.ms-stat').style.cursor = 'pointer';
+      const clickFn = () => showDrilldown(MS_LABELS[i], RAW.filter(r=>r[fieldKey]));
+      div.querySelector('.ms-bg').addEventListener('click', clickFn);
+      div.querySelector('.ms-stat').addEventListener('click', clickFn);
+    }
+    el.appendChild(div);
+  });
+}
+
+// ── BILLING
+function renderBilling() {
+  const el = document.getElementById('billing-list'); el.innerHTML = '';
+  ['Monthly','Yearly'].forEach(billing => {
+    const group = RAW.filter(r=>r.billing===billing), n = group.length;
+    if (!n) return;
+    const segs = TIERS.map(t=>({t, c:group.filter(r=>r.tier===t).length}));
+    el.innerHTML += `<div>
+      <div class="b-hdr">
+        <span class="b-label">${billing} (${n})</span>
+        <span class="b-badge ${billing==='Monthly'?'b-risk':'b-ok'}">${billing==='Monthly'?'High Churn Risk':'Lower Risk'}</span>
+      </div>
+      <div class="b-track">${segs.map(s=>`<div class="b-seg" style="width:${Math.round(s.c/n*100)}%;background:${TIER_COLORS[s.t]};"></div>`).join('')}</div>
+      <div class="b-legend">${segs.map(s=>`<div class="b-leg-item"><div class="leg-dot" style="background:${TIER_COLORS[s.t]};"></div>${s.t}: ${s.c}</div>`).join('')}</div>
+    </div>`;
+  });
+}
+
+// ── CHAPTERS
+function renderChapters() {
+  const chMap = {};
+  RAW.forEach(r => {
+    const ch = r.chapter||'Unknown';
+    if (!chMap[ch]) chMap[ch] = {total:0, activated:0};
+    chMap[ch].total++;
+    if (r.tier === 'Fully Activated') chMap[ch].activated++;
+  });
+  const chapters = Object.entries(chMap).sort((a,b)=>b[1].total-a[1].total).slice(0,12);
+  const maxCh = chapters[0]?.[1].total||1;
+  const el = document.getElementById('ch-list'); el.innerHTML = '';
+  chapters.forEach(([name,d]) => {
+    el.innerHTML += `<div class="ch-row">
+      <div class="ch-name">${name.replace(/ \(.*\)/,'')}</div>
+      <div class="ch-count">${d.total}</div>
+      <div class="ch-bar-wrap"><div class="ch-bar" style="width:${Math.round(d.total/maxCh*100)}%;"></div></div>
+    </div>`;
+  });
+}
+
+// ── TIMELINE
+function renderTimeline() {
+  const weekMap = {}, weekOrder = [];
+  RAW.forEach(r => {
+    const d = new Date(r.startDate); if (isNaN(d)) return;
+    const sun = new Date(d); sun.setDate(d.getDate()-d.getDay());
+    const key = sun.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    if (!weekMap[key]) { weekMap[key] = {}; weekOrder.push(key); }
+    weekMap[key][r.tier] = (weekMap[key][r.tier]||0) + 1;
+  });
+  const labels = [...new Set(weekOrder)].sort((a,b)=>new Date(a+'/2026')-new Date(b+'/2026'));
+  const datasets = TIERS.map(tier => ({
+    label: tier,
+    data: labels.map(w=>(weekMap[w]&&weekMap[w][tier])||0),
+    backgroundColor: TIER_COLORS[tier]+'BB',
+    borderColor: TIER_COLORS[tier],
+    borderWidth:1, borderRadius:3, borderSkipped:false,
+  }));
+  if (timelineChart) timelineChart.destroy();
+  timelineChart = new Chart(document.getElementById('timeline-chart'), {
+    type:'bar', data:{labels, datasets},
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{title:l=>'Week of '+l[0].label, label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y}`}}},
+      onClick:(e, elements) => {
+        if (!elements.length) return;
+        const el = elements[0];
+        const tier = TIERS[el.datasetIndex];
+        const week = labels[el.index];
+        const members = RAW.filter(r => {
+          const d = new Date(r.startDate); if (isNaN(d)) return false;
+          const sun = new Date(d); sun.setDate(d.getDate()-d.getDay());
+          const wk = sun.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+          return wk === week && r.tier === tier;
+        });
+        showDrilldown(tier + ' — Week of ' + week, members);
+      },
+      scales:{
+        x:{stacked:true, grid:{color:'rgba(206,198,244,.07)'}, ticks:{color:'#998BDF',font:{size:11,family:'Poppins'}}},
+        y:{stacked:true, grid:{color:'rgba(206,198,244,.07)'}, ticks:{color:'#998BDF',font:{size:11,family:'Poppins'},stepSize:5}, beginAtZero:true}
+      }
+    }
+  });
+  const tierCounts = {}; TIERS.forEach(t=>tierCounts[t]=0); RAW.forEach(r=>{if(tierCounts[r.tier]!==undefined)tierCounts[r.tier]++;});
+  const leg = document.getElementById('timeline-legend'); leg.innerHTML = '';
+  TIERS.forEach(t => { leg.innerHTML += `<div class="cl-item"><div class="cl-swatch" style="background:${TIER_COLORS[t]};"></div>${t} (${tierCounts[t]})</div>`; });
+}
+
+// ── MS KEY
+function renderMsKey() {
+  const el = document.getElementById('ms-key');
+  el.innerHTML = '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-right:4px;">Key:</span>'
+    + MS_LABELS.map((l,i)=>`<div class="ms-key-item"><div class="ms-key-num" style="background:${MS_COLORS[i]}33;border:1.5px solid ${MS_COLORS[i]};"></div><span>${l}</span></div>`).join('')
+    + `<div class="ms-key-item"><div class="ms-key-num" style="background:rgba(253,164,175,.3);border:1.5px solid #FDA4AF;border-radius:50%;"></div><span>Cancel Requested</span></div>`
+    + `<div class="ms-key-item"><div class="ms-key-num" style="background:#F87171;border:1.5px solid #F87171;border-radius:50%;"></div><span>Churned</span></div>`;
+}
+
+// ── MEMBER TABLE
+function sortTable(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}renderTable();}
+function renderTable(){
+  const q=(document.getElementById('tbl-search').value||'').toLowerCase();
+  const fb=document.getElementById('f-billing').value;
+  const ft=document.getElementById('f-tier').value;
+  const fm=document.getElementById('f-milestone').value;
+  let rows=RAW.filter(r=>{
+    if(q&&!r.id.toLowerCase().includes(q)&&!r.chapter.toLowerCase().includes(q))return false;
+    if(fb&&r.billing!==fb)return false;
+    if(ft&&r.tier!==ft)return false;
+    if(fm){if(fm.startsWith('no-')){if(r[fm.slice(3)])return false;}else{if(!r[fm])return false;}}
+    return true;
+  });
+  rows.sort((a,b)=>{
+    let av=a[sortCol]??'',bv=b[sortCol]??'';
+    if(sortCol==='startDate'){return sortAsc?new Date(av)-new Date(bv):new Date(bv)-new Date(av);}
+    if(sortCol==='milestoneCount'||sortCol==='daysIn'){return sortAsc?av-bv:bv-av;}
+    return sortAsc?(av>bv?1:-1):(av<bv?1:-1);
+  });
+  document.getElementById('tbl-body').innerHTML=rows.map(r=>`<tr>
+    <td>${idCell(r.id)}</td>
+    <td>${fmt(r.startDate)}</td>
+    <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
+    <td><span style="font-size:11px;color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'}">${r.billing||'—'}</span></td>
+    <td>${tierPill(r.tier)}${r.isSaved?'<span class="saved-badge">✓ Saved</span>':''}</td>
+    <td><div class="ms-dots">${msDotsHtml(r)}</div></td>
+    <td style="font-weight:700;font-size:13px;color:var(--purple-300);">${r.milestoneCount}/5</td>
+    <td style="font-size:11px;color:var(--text-muted);">${r.daysIn}d</td>
+  </tr>`).join('');
+  document.getElementById('tbl-count').textContent=`${rows.length} of ${RAW.length} members`;
+  document.getElementById('tbl-footer').textContent=`Showing ${rows.length} member${rows.length!==1?'s':''} · Click headers to sort`;
+}
+
+// ── RISK TAB
+function renderRisk(){
+  const riskRows    = RAW.filter(r=>r.tier==='Failure to Launch');
+  const cancelRows  = RAW.filter(r=>r.tier==='At Risk');
+  const churnRows   = RAW.filter(r=>r.tier==='Churned');
+  const monthlyRisk = RAW.filter(r=>r.billing==='Monthly'&&r.milestoneCount<=3&&r.tier!=='Churned'&&r.tier!=='At Risk');
+  document.getElementById('risk-count').textContent   = riskRows.length+' members';
+  document.getElementById('cancel-count').textContent = cancelRows.length+' members';
+  document.getElementById('churn-count').textContent  = churnRows.length+' members';
+  document.getElementById('risk-body').innerHTML=riskRows.map(r=>`<tr>
+    <td>${idCell(r.id)}</td><td>${fmt(r.startDate)}</td>
+    <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
+    <td style="color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'};font-size:11px;">${r.billing}</td>
+    <td style="font-size:11px;color:var(--text-muted);">${r.daysIn}d</td>
+    <td style="font-weight:700;color:var(--amber);">${r.milestoneCount}/5</td>
+    <td><div class="ms-dots">${msDotsHtml(r)}</div></td>
+  </tr>`).join('');
+  document.getElementById('cancel-body').innerHTML=cancelRows.map(r=>`<tr>
+    <td>${idCell(r.id)}</td><td>${fmt(r.startDate)}</td>
+    <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
+    <td style="color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'};font-size:11px;">${r.billing}</td>
+    <td style="font-weight:700;color:var(--purple-300);">${r.milestoneCount}/5</td>
+    <td style="font-size:11px;color:#FDA4AF;">${fmt(r.memberAtRiskFor)}</td>
+    <td style="font-size:11px;">${r.isSaved?'<span class="saved-badge">✓ Saved</span>':'—'}</td>
+  </tr>`).join('');
+  document.getElementById('churn-body').innerHTML=churnRows.map(r=>`<tr>
+    <td>${idCell(r.id)}</td><td>${fmt(r.startDate)}</td>
+    <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
+    <td style="font-size:11px;">${r.billing}</td>
+    <td style="font-size:11px;color:var(--red);">${fmt(r.churnedDate)}</td>
+  </tr>`).join('');
+  document.getElementById('monthly-risk-body').innerHTML=monthlyRisk.map(r=>`<tr>
+    <td>${idCell(r.id)}</td><td>${fmt(r.startDate)}</td>
+    <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
+    <td style="font-weight:700;color:var(--amber);">${r.daysIn}d</td>
+    <td style="font-weight:700;color:var(--pink-500);">${r.milestoneCount}/5</td>
+    <td><div class="ms-dots">${msDotsHtml(r)}</div></td>
+  </tr>`).join('');
+}
+
+// ── WAITLIST TAB
+function renderWaitlist() {
+  const wlMembers = RAW.filter(r => r.waitlist && r.waitlist.length > 0);
+  const general   = wlMembers.filter(r=>r.waitlist==='General').length;
+  const priority  = wlMembers.filter(r=>r.waitlist==='Priority').length;
+
+  // Avg days from invited to join
+  const daysToJoin = wlMembers
+    .filter(r=>r.invitedOff && r.startDate)
+    .map(r=>{
+      const inv=new Date(r.invitedOff), start=new Date(r.startDate);
+      return isNaN(inv)||isNaN(start)?null:Math.round((start-inv)/86400000);
+    }).filter(d=>d!==null&&d>=0);
+  const avgDays = daysToJoin.length ? Math.round(daysToJoin.reduce((a,b)=>a+b,0)/daysToJoin.length) : 0;
+  const fullyActWL = wlMembers.filter(r=>r.tier==='Fully Activated').length;
+
+  // Stats
+  const el = document.getElementById('wl-stats'); el.innerHTML = '';
+  [
+    {label:'Total Waitlisted',    val:wlMembers.length, sub:`${general} General · ${priority} Priority`, cls:'c-blue'},
+    {label:'Avg Days to Join',    val:avgDays+'d',      sub:'From invited to membership start',          cls:'c-purple'},
+    {label:'Fully Activated',     val:fullyActWL,       sub:`${wlMembers.length?Math.round(fullyActWL/wlMembers.length*100):0}% of waitlist members`,cls:'c-green'},
+    {label:'Waitlist Churned',    val:wlMembers.filter(r=>r.tier==='Churned').length, sub:'Left after joining',cls:'c-red'},
+  ].forEach(k=>{
+    el.innerHTML+=`<div class="wl-stat"><div class="wl-label">${k.label}</div><div class="wl-val ${k.cls}">${k.val}</div><div class="wl-sub">${k.sub}</div></div>`;
+  });
+
+  // Table
+  document.getElementById('wl-tbl-count').textContent = wlMembers.length + ' members';
+  document.getElementById('wl-body').innerHTML = wlMembers.map(r=>{
+    const inv=new Date(r.invitedOff), start=new Date(r.startDate);
+    const days = (!isNaN(inv)&&!isNaN(start)&&r.invitedOff) ? Math.round((start-inv)/86400000) : null;
+    return `<tr>
+      <td>${idCell(r.id)}</td><td>${fmt(r.startDate)}</td>
+      <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
+      <td style="font-size:11px;color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'};">${r.billing}</td>
+      <td><span class="pill ${r.waitlist==='Priority'?'p-fa':'p-ip'}">${r.waitlist}</span></td>
+      <td style="font-size:11px;">${fmt(r.invitedOff)}</td>
+      <td style="font-size:11px;color:var(--text-muted);">${days!==null?days+'d':'—'}</td>
+      <td>${tierPill(r.tier)}</td>
+      <td style="font-weight:700;color:var(--purple-300);">${r.milestoneCount}/5</td>
+    </tr>`;
+  }).join('');
+
+  // Waitlist funnel + milestones
+  if (wlMembers.length) {
+    renderFunnel(wlMembers, 'wl-funnel', null);
+    renderMilestones(wlMembers, 'wl-ms-list');
+  }
+}
+
+// ── AI CHAT
+function setApiKey(){
+  const v=document.getElementById('api-key-input').value.trim();
+  if(!v){alert('Please enter an API key.');return;}
+  apiKey=v; document.getElementById('api-key-input').value='••••••••••••••••••••';
+  addMsg('ai','✅ API key set! Ask anything about your cohort.');
+}
+function addMsg(role,text){
+  const d=document.createElement('div');d.className='msg msg-'+role;d.textContent=text;
+  const c=document.getElementById('chat-msgs');c.appendChild(d);c.scrollTop=c.scrollHeight;return d;
+}
+function askSuggested(el){document.getElementById('chat-input').value=el.textContent;sendChat();}
+async function sendChat(){
+  const input=document.getElementById('chat-input'),q=input.value.trim();
+  if(!q)return;if(!apiKey){addMsg('ai','⚠️ Please set your Anthropic API key first.');return;}
+  input.value=''; addMsg('user',q);
+  const btn=document.getElementById('send-btn');btn.disabled=true;
+  const loadMsg=addMsg('ai','Analyzing…');loadMsg.classList.add('loading');
+  const tierCounts={}; TIERS.forEach(t=>tierCounts[t]=0); RAW.forEach(r=>{if(tierCounts[r.tier]!==undefined)tierCounts[r.tier]++;});
+  const wlMembers=RAW.filter(r=>r.waitlist&&r.waitlist.length>0);
+  const summary={
+    total:RAW.length, monthly:RAW.filter(r=>r.billing==='Monthly').length,
+    yearly:RAW.filter(r=>r.billing==='Yearly').length,
+    churned:RAW.filter(r=>r.tier==='Churned').length,
+    atRisk:RAW.filter(r=>r.tier==='At Risk').length,
+    referrals:RAW.filter(r=>r.totalReferrals>=1).length,
+    tier_breakdown:tierCounts,
+    milestone_completion:Object.fromEntries(['hasConcierge','hasInitiation','hasDinner','hasSlack','hasCourse'].map((k,i)=>[MS_LABELS[i],RAW.filter(r=>r[k]).length])),
+    waitlist:{total:wlMembers.length, general:wlMembers.filter(r=>r.waitlist==='General').length, priority:wlMembers.filter(r=>r.waitlist==='Priority').length},
+    program_start:'February 15 2026', target:'90%',
+    members_sample:RAW.slice(0,30)
+  };
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:1000,
+        system:`You are an analyst for Pavilion, a GTM/revenue community. 90-day Executive onboarding (launched Feb 15 2026). Goal: 90% Y1 retention. Tiers: Not Started, In Progress, Fully Activated, Failure to Launch (60+ days, ≤3 milestones), Cancel Requested (scheduled cancel in future), Churned (cancel date passed or Churned On set). 5 milestones: Sales Touch/Onboarding, Initiation Call, Dinner, Slack (2+ msgs in last 12 months), Course Enrolled. Monthly = highest churn risk. Be direct, specific. Data: ${JSON.stringify(summary)}`,
+        messages:[{role:'user',content:q}]
+      })
+    });
+    const data=await resp.json();
+    loadMsg.remove();
+    addMsg('ai',data.content?.find(b=>b.type==='text')?.text||'No response.');
+  }catch(e){loadMsg.remove();addMsg('ai','Error: '+e.message);}
+  btn.disabled=false;
+}
+
+
+// ── DRILLDOWN
+function showDrilldown(title, members) {
+  if (!members || members.length === 0) return;
+  document.getElementById('drilldown-title').textContent = title + ' (' + members.length + ' members)';
+  const rows = members.map(r => `<tr>
+    <td>${idCell(r.id)}</td>
+    <td>${fmt(r.startDate)}</td>
+    <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
+    <td><span style="font-size:11px;color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'}">${r.billing||'—'}</span></td>
+    <td>${tierPill(r.tier)}${r.isSaved?'<span class="saved-badge">✓ Saved</span>':''}</td>
+    <td><div class="ms-dots">${msDotsHtml(r)}</div></td>
+    <td style="font-weight:700;font-size:13px;color:var(--purple-300);">${r.milestoneCount}/5</td>
+    <td style="font-size:11px;color:var(--text-muted);">${r.daysIn}d</td>
+  </tr>`).join('');
+  document.getElementById('drilldown-body').innerHTML = `
+    <table class="tbl" style="margin-top:12px;">
+      <thead><tr>
+        <th>Member ID</th><th>Start Date</th><th>Chapter</th>
+        <th>Billing</th><th>Tier</th><th>Milestones</th><th>Score</th><th>Days In</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  const modal = document.getElementById('drilldown-modal');
+  modal.style.display = 'flex';
+}
+function closeDrilldown() {
+  document.getElementById('drilldown-modal').style.display = 'none';
+}
+
+init();
+</script>
+</body>
+</html>
