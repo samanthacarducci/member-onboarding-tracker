@@ -304,6 +304,7 @@ canvas{max-width:100%;}
           <option value="Failure to Launch">Failure to Launch</option>
           <option value="At Risk">At Risk (Cancel Requested)</option>
           <option value="Churned">Churned</option>
+          <option value="Saved Only">Saved Only</option>
         </select>
         <select class="sel" id="f-milestone" onchange="renderTable()">
           <option value="">All Milestones</option>
@@ -894,7 +895,8 @@ function renderTable(){
   let rows=RAW.filter(r=>{
     if(q&&!r.id.toLowerCase().includes(q)&&!r.chapter.toLowerCase().includes(q))return false;
     if(fb&&r.billing!==fb)return false;
-    if(ft&&r.tier!==ft)return false;
+    if(ft==="Saved Only") { if(!r.isSaved) return false; }
+    else if(ft&&r.tier!==ft) return false;
     if(fm){if(fm.startsWith('no-')){if(r[fm.slice(3)])return false;}else{if(!r[fm])return false;}}
     return true;
   });
