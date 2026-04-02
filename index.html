@@ -583,7 +583,7 @@ function processRows(csvRows) {
       const isSaved         = savedOn.length > 0;
       const obj = {
         id:           r['Chargebee Customer ID'] || '—',
-        name:         r['Name'] || '',
+        name:         r['Full Name'] || '',
         email:        r['Email'] || '',
         startDate,
         chapter:      r['Location (Chapter)'] || '',
