@@ -290,7 +290,7 @@ canvas{max-width:100%;}
     <div class="panel">
       <div class="panel-title">All Members <span class="panel-hint" id="tbl-count"></span></div>
       <div class="tbl-controls">
-        <input class="srch" id="tbl-search" placeholder="Search by ID or chapter…" oninput="renderTable()">
+        <input class="srch" id="tbl-search" placeholder="Search name, email, or chapter…" oninput="renderTable()">
         <select class="sel" id="f-billing" onchange="renderTable()">
           <option value="">All Billing</option>
           <option value="Monthly">Monthly</option>
@@ -324,7 +324,7 @@ canvas{max-width:100%;}
       <div class="tbl-wrap">
         <table class="tbl">
           <thead><tr>
-            <th onclick="sortTable('id')">Member ID ↕</th>
+            <th onclick="sortTable('name')">Member ↕</th>
             <th onclick="sortTable('startDate')">Start Date ↕</th>
             <th onclick="sortTable('chapter')">Chapter ↕</th>
             <th onclick="sortTable('billing')">Billing ↕</th>
@@ -346,14 +346,14 @@ canvas{max-width:100%;}
       <div class="panel">
         <div class="panel-title">🚀 Failure to Launch <span class="panel-hint" id="risk-count"></span></div>
         <div class="tbl-wrap"><table class="tbl">
-          <thead><tr><th>Member ID</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Days In</th><th>Score</th><th>Milestones</th></tr></thead>
+          <thead><tr><th>Member</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Days In</th><th>Score</th><th>Milestones</th></tr></thead>
           <tbody id="risk-body"></tbody>
         </table></div>
       </div>
       <div class="panel">
         <div class="panel-title">⚠️ At Risk — Cancel Requested <span class="panel-hint" id="cancel-count"></span></div>
         <div class="tbl-wrap"><table class="tbl">
-          <thead><tr><th>Member ID</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Score</th><th>Cancel Date</th><th>Saved?</th></tr></thead>
+          <thead><tr><th>Member</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Score</th><th>Cancel Date</th><th>Saved?</th></tr></thead>
           <tbody id="cancel-body"></tbody>
         </table></div>
       </div>
@@ -362,14 +362,14 @@ canvas{max-width:100%;}
       <div class="panel">
         <div class="panel-title">🚪 Churned Members <span class="panel-hint" id="churn-count"></span></div>
         <div class="tbl-wrap"><table class="tbl">
-          <thead><tr><th>Member ID</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Churned On</th></tr></thead>
+          <thead><tr><th>Member</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Churned On</th></tr></thead>
           <tbody id="churn-body"></tbody>
         </table></div>
       </div>
       <div class="panel">
         <div class="panel-title">Monthly Members — 3 or Fewer Milestones <span class="panel-hint">highest churn risk group</span></div>
         <div class="tbl-wrap"><table class="tbl">
-          <thead><tr><th>Member ID</th><th>Start Date</th><th>Chapter</th><th>Days In</th><th>Score</th><th>Milestones</th></tr></thead>
+          <thead><tr><th>Member</th><th>Start Date</th><th>Chapter</th><th>Days In</th><th>Score</th><th>Milestones</th></tr></thead>
           <tbody id="monthly-risk-body"></tbody>
         </table></div>
       </div>
@@ -383,7 +383,7 @@ canvas{max-width:100%;}
     <div class="panel" style="margin-bottom:24px;">
       <div class="panel-title">All Waitlisted Members <span class="panel-hint" id="wl-tbl-count"></span></div>
       <div class="tbl-wrap"><table class="tbl">
-        <thead><tr><th>Member ID</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Waitlist Type</th><th>Invited Off</th><th>Days to Join</th><th>Tier</th><th>Score</th></tr></thead>
+        <thead><tr><th>Member</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Waitlist Type</th><th>Invited Off</th><th>Days to Join</th><th>Tier</th><th>Score</th></tr></thead>
         <tbody id="wl-body"></tbody>
       </table></div>
     </div>
@@ -583,6 +583,8 @@ function processRows(csvRows) {
       const isSaved         = savedOn.length > 0;
       const obj = {
         id:           r['Chargebee Customer ID'] || '—',
+        name:         r['Name'] || '',
+        email:        r['Email'] || '',
         startDate,
         chapter:      r['Location (Chapter)'] || '',
         billing:      r['Current Term Period'] || '',
@@ -685,6 +687,14 @@ function tierClass(t){return{'Not Started':'p-ns','In Progress':'p-ip','Fully Ac
 function tierPill(t){return`<span class="pill ${tierClass(t)}"><span class="dot"></span>${t}</span>`;}
 function fmt(d){if(!d||d==='NaN')return'—';try{const p=new Date(d);return isNaN(p)?d:p.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});}catch{return d;}}
 function idCell(id){return`<span class="id-cell" title="${id}">${id}</span>`;}
+function memberCell(r){
+  const display = r.name || r.id;
+  return `<td style="min-width:140px">
+    <div style="font-weight:500;font-size:12px;color:var(--text)">${display}</div>
+    ${r.email?`<div style="font-size:10.5px;color:var(--text-muted)">${r.email}</div>`:''}
+    ${r.name?`<div class="id-cell" title="${r.id}" style="margin-top:1px">${r.id}</div>`:''}
+  </td>`;
+}
 function msDotsHtml(r){
   // 6 milestone boxes: Sales Touch | Onboarding Call | Initiation | Dinner | Slack | Course
   const keys = ['hasSalesTouched','hasOnboardingCall','hasInitiation','hasDinner','hasSlack','hasCourse'];
@@ -893,7 +903,7 @@ function renderTable(){
   const ft=document.getElementById('f-tier').value;
   const fm=document.getElementById('f-milestone').value;
   let rows=RAW.filter(r=>{
-    if(q&&!r.id.toLowerCase().includes(q)&&!r.chapter.toLowerCase().includes(q))return false;
+    if(q&&!r.id.toLowerCase().includes(q)&&!r.chapter.toLowerCase().includes(q)&&!r.name.toLowerCase().includes(q)&&!r.email.toLowerCase().includes(q))return false;
     if(fb&&r.billing!==fb)return false;
     if(ft==="Saved Only") { if(!r.isSaved) return false; }
     else if(ft&&r.tier!==ft) return false;
@@ -907,7 +917,7 @@ function renderTable(){
     return sortAsc?(av>bv?1:-1):(av<bv?1:-1);
   });
   document.getElementById('tbl-body').innerHTML=rows.map(r=>`<tr>
-    <td>${idCell(r.id)}</td>
+    ${memberCell(r)}
     <td>${fmt(r.startDate)}</td>
     <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
     <td><span style="font-size:11px;color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'}">${r.billing||'—'}</span></td>
@@ -930,7 +940,7 @@ function renderRisk(){
   document.getElementById('cancel-count').textContent = cancelRows.length+' members';
   document.getElementById('churn-count').textContent  = churnRows.length+' members';
   document.getElementById('risk-body').innerHTML=riskRows.map(r=>`<tr>
-    <td>${idCell(r.id)}</td><td>${fmt(r.startDate)}</td>
+    ${memberCell(r)}<td>${fmt(r.startDate)}</td>
     <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
     <td style="color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'};font-size:11px;">${r.billing}</td>
     <td style="font-size:11px;color:var(--text-muted);">${r.daysIn}d</td>
@@ -941,7 +951,7 @@ function renderRisk(){
     // Show whichever future date applies — churnedDate (future) or memberAtRiskFor
     const futureDate = r.churnedDate ? fmt(r.churnedDate) : fmt(r.memberAtRiskFor);
     return `<tr>
-    <td>${idCell(r.id)}</td><td>${fmt(r.startDate)}</td>
+    ${memberCell(r)}<td>${fmt(r.startDate)}</td>
     <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
     <td style="color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'};font-size:11px;">${r.billing}</td>
     <td style="font-weight:700;color:var(--purple-300);">${r.milestoneCount}/5</td>
@@ -949,13 +959,13 @@ function renderRisk(){
     <td style="font-size:11px;">${r.isSaved?'<span class="saved-badge">✓ Saved</span>':'—'}</td>
   </tr>`;}).join('');
   document.getElementById('churn-body').innerHTML=churnRows.map(r=>`<tr>
-    <td>${idCell(r.id)}</td><td>${fmt(r.startDate)}</td>
+    ${memberCell(r)}<td>${fmt(r.startDate)}</td>
     <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
     <td style="font-size:11px;">${r.billing}</td>
     <td style="font-size:11px;color:var(--red);">${fmt(r.churnedDate)}</td>
   </tr>`).join('');
   document.getElementById('monthly-risk-body').innerHTML=monthlyRisk.map(r=>`<tr>
-    <td>${idCell(r.id)}</td><td>${fmt(r.startDate)}</td>
+    ${memberCell(r)}<td>${fmt(r.startDate)}</td>
     <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
     <td style="font-weight:700;color:var(--amber);">${r.daysIn}d</td>
     <td style="font-weight:700;color:var(--pink-500);">${r.milestoneCount}/5</td>
@@ -996,7 +1006,7 @@ function renderWaitlist() {
     const inv=new Date(r.invitedOff), start=new Date(r.startDate);
     const days = (!isNaN(inv)&&!isNaN(start)&&r.invitedOff) ? Math.round((start-inv)/86400000) : null;
     return `<tr>
-      <td>${idCell(r.id)}</td><td>${fmt(r.startDate)}</td>
+      ${memberCell(r)}<td>${fmt(r.startDate)}</td>
       <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
       <td style="font-size:11px;color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'};">${r.billing}</td>
       <td><span class="pill ${r.waitlist==='Priority'?'p-fa':'p-ip'}">${r.waitlist}</span></td>
@@ -1070,7 +1080,7 @@ function showDrilldown(title, members) {
   document.getElementById('drilldown-title').textContent = title + ' (' + members.length + ' members)';
   const showChurnCol = members.some(r => r.churnedDate);
   const rows = members.map(r => `<tr>
-    <td>${idCell(r.id)}</td>
+    ${memberCell(r)}
     <td>${fmt(r.startDate)}</td>
     <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
     <td><span style="font-size:11px;color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'}">${r.billing||'—'}</span></td>
@@ -1083,7 +1093,7 @@ function showDrilldown(title, members) {
   document.getElementById('drilldown-body').innerHTML = `
     <table class="tbl" style="margin-top:12px;">
       <thead><tr>
-        <th>Member ID</th><th>Start Date</th><th>Chapter</th>
+        <th>Member</th><th>Start Date</th><th>Chapter</th>
         <th>Billing</th><th>Tier</th><th>Milestones</th><th>Score</th><th>Days In</th>
         ${showChurnCol ? '<th>Churned On</th>' : ''}
       </tr></thead>

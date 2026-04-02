@@ -44,6 +44,8 @@ https://docs.google.com/spreadsheets/d/1PTuOEnbQEvPwyButEaMshg7KX-2uOl1wfSIsJyIg
 | 20 | NPS Rating within 110 Days |
 | 21 | Member Became At Risk On |
 | 22 | Churned On |
+| 23 | Name |
+| 24 | Email |
 
 **Important data notes:**
 - `Touched by Sales - Meeting` and `Slack Sent` export as `True`/`False` strings from Google Sheets (not 1/0)
