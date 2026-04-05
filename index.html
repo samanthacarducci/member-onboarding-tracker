@@ -551,10 +551,11 @@ function getTier(r, ms, daysIn) {
       }
       return 'Churned'; // unparseable date — treat as churned
     }
-    // Member At Risk For = scheduled cancel date — past date does NOT mean churned,
-    // only a Churned On date confirms actual churn
+    // At Risk only if the scheduled cancel date is in the future
     if (r.memberAtRiskFor) {
-      return 'At Risk';
+      const cancelDate = new Date(r.memberAtRiskFor);
+      if (!isNaN(cancelDate) && cancelDate > today) return 'At Risk';
+      // Past cancel date with no Churned On — fall through to normal tier
     }
   }
   if (ms.milestoneCount === 5) return 'Fully Activated';
