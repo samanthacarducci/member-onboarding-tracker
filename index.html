@@ -559,8 +559,9 @@ function getTier(r, ms, daysIn) {
     }
   }
   if (ms.milestoneCount === 5) return 'Fully Activated';
-  if (daysIn >= 60 && ms.milestoneCount <= 3) return 'Failure to Launch';
-  if (ms.hasConcierge || ms.hasInitiation) return 'In Progress';
+  if (ms.milestoneCount >= 4) return 'In Progress';
+  if (daysIn >= 60) return 'Failure to Launch';
+  if (ms.milestoneCount >= 2) return 'In Progress';
   return 'Not Started';
 }
 
