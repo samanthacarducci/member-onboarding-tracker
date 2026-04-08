@@ -325,6 +325,7 @@ canvas{max-width:100%;}
         <table class="tbl">
           <thead><tr>
             <th onclick="sortTable('name')">Member ↕</th>
+            <th>LinkedIn</th>
             <th onclick="sortTable('startDate')">Start Date ↕</th>
             <th onclick="sortTable('chapter')">Chapter ↕</th>
             <th onclick="sortTable('billing')">Billing ↕</th>
@@ -584,6 +585,8 @@ function processRows(csvRows) {
         id:           r['Chargebee Customer ID'] || '—',
         name:         r['Full Name'] || '',
         email:        r['Email'] || '',
+        linkedinUrl:  r['LinkedIn URL'] || r['Linkedin URL'] || '',
+        hubspotUrl:   r['View in HubSpot'] || r['View In HubSpot'] || '',
         startDate,
         chapter:      r['Location (Chapter)'] || '',
         billing:      r['Current Term Period'] || '',
@@ -687,9 +690,10 @@ function tierPill(t){return`<span class="pill ${tierClass(t)}"><span class="dot"
 function fmt(d){if(!d||d==='NaN')return'—';try{const p=new Date(d);return isNaN(p)?d:p.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});}catch{return d;}}
 function idCell(id){return`<span class="id-cell" title="${id}">${id}</span>`;}
 function memberCell(r){
-  return `<td style="min-width:140px">
+  return `<td style="min-width:160px">
     <div style="font-weight:500;font-size:12px;color:var(--text)">${r.name||'—'}</div>
     ${r.email?`<div style="font-size:10.5px;color:var(--text-muted)">${r.email}</div>`:''}
+    ${r.hubspotUrl?`<a href="${r.hubspotUrl}" target="_blank" rel="noopener" style="font-size:10px;color:var(--purple-400);text-decoration:none;font-weight:500;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">View in HubSpot ↗</a>`:''}
   </td>`;
 }
 function msDotsHtml(r){
@@ -915,6 +919,7 @@ function renderTable(){
   });
   document.getElementById('tbl-body').innerHTML=rows.map(r=>`<tr>
     ${memberCell(r)}
+    <td style="min-width:80px">${r.linkedinUrl?`<a href="${r.linkedinUrl}" target="_blank" rel="noopener" style="font-size:11px;color:var(--blue-300);text-decoration:none;font-weight:500;" onmouseover="this.style.color='var(--purple-300)'" onmouseout="this.style.color='var(--blue-300)'">LinkedIn ↗</a>`:'<span style="font-size:11px;color:rgba(255,255,255,.2);">—</span>'}</td>
     <td>${fmt(r.startDate)}</td>
     <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
     <td><span style="font-size:11px;color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'}">${r.billing||'—'}</span></td>
