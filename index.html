@@ -574,6 +574,7 @@ function processRows(csvRows) {
   const today = new Date();
   return csvRows
     .filter(r => r['Membership Start Date'] && r['Membership Start Date'].length > 0)
+    .filter(r => !r['Premium Type'] || r['Premium Type'].trim() === '')
     .map(r => {
       const ms = getMilestones(r);
       const startDate = r['Membership Start Date'] || '';
