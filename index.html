@@ -465,7 +465,7 @@ const TIER_BG = {
 const MS_LABELS = ['Touched by Sales','Onboarding Call','Initiation Call','Chapter Dinner','Slack (2+ in 12mo)','Course Enrolled'];
 const MS_COLORS = ['#B197FC','#998BDF','#C57FD9','#FF768F','#FCD34D','#6EE7B7'];
 
-let RAW = [], timelineChart = null, sortCol = 'startDate', sortAsc = false, apiKey = '';
+let RAW = [], timelineChart = null, sortCol = 'startDate', sortAsc = false, apiKey = localStorage.getItem('pavilion_api_key')||'';
 
 // ── CSV PARSER
 function parseCSV(text) {
@@ -1034,8 +1034,9 @@ function renderWaitlist() {
 function setApiKey(){
   const v=document.getElementById('api-key-input').value.trim();
   if(!v){alert('Please enter an API key.');return;}
-  apiKey=v; document.getElementById('api-key-input').value='••••••••••••••••••••';
-  addMsg('ai','✅ API key set! Ask anything about your cohort.');
+  apiKey=v; localStorage.setItem('pavilion_api_key',v);
+  document.getElementById('api-key-input').value='••••••••••••••••••••';
+  addMsg('ai','✅ API key set and saved! Ask anything about your cohort.');
 }
 function addMsg(role,text){
   const d=document.createElement('div');d.className='msg msg-'+role;d.textContent=text;
@@ -1074,6 +1075,7 @@ async function sendChat(){
     });
     const data=await resp.json();
     loadMsg.remove();
+    if(!resp.ok){addMsg('ai','API error '+resp.status+': '+(data.error?.message||JSON.stringify(data)));btn.disabled=false;return;}
     addMsg('ai',data.content?.find(b=>b.type==='text')?.text||'No response.');
   }catch(e){loadMsg.remove();addMsg('ai','Error: '+e.message);}
   btn.disabled=false;
@@ -1113,6 +1115,7 @@ function closeDrilldown() {
 }
 
 init();
+if(apiKey){const inp=document.getElementById('api-key-input');if(inp)inp.value='••••••••••••••••••••';}
 </script>
 </body>
 </html>
