@@ -603,6 +603,7 @@ function processRows(csvRows) {
         totalReferrals:  parseNum(r['Total Referrals']),
         waitlist:        r['Waitlist'] || '',
         invitedOff:      r['Invited Off Waitlist'] || '',
+        icp:             r['ICP'] || '',
         ...ms
       };
       obj.tier = getTier(obj, ms, daysIn);
@@ -1087,7 +1088,15 @@ function showDrilldown(title, members) {
   if (!members || members.length === 0) return;
   document.getElementById('drilldown-title').textContent = title + ' (' + members.length + ' members)';
   const showChurnCol = members.some(r => r.churnedDate);
-  const rows = members.map(r => `<tr>
+  const showRiskCols = title === 'At Risk' || title === 'Churned';
+  const rows = members.map(r => {
+    const icpVal = r.icp && r.icp.toLowerCase() !== 'false' && r.icp.trim() !== '' && r.icp !== '0'
+      ? `<span style="color:var(--green);font-weight:700;">Yes</span>`
+      : `<span style="color:var(--text-muted);">No</span>`;
+    const wlVal = r.waitlist
+      ? `<span class="pill p-ip" style="font-size:10px;padding:2px 7px;">${r.waitlist}</span>`
+      : `<span style="color:var(--text-muted);">No</span>`;
+    return `<tr>
     ${memberCell(r)}
     <td>${fmt(r.startDate)}</td>
     <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
@@ -1097,13 +1106,16 @@ function showDrilldown(title, members) {
     <td style="font-weight:700;font-size:13px;color:var(--purple-300);">${r.milestoneCount}/5</td>
     <td style="font-size:11px;color:var(--text-muted);">${r.daysIn}d</td>
     ${showChurnCol ? `<td style="font-size:11px;color:#F87171;">${fmt(r.churnedDate)}</td>` : ''}
-  </tr>`).join('');
+    ${showRiskCols ? `<td style="font-size:11px;">${icpVal}</td><td style="font-size:11px;">${wlVal}</td>` : ''}
+  </tr>`;
+  }).join('');
   document.getElementById('drilldown-body').innerHTML = `
     <table class="tbl" style="margin-top:12px;">
       <thead><tr>
         <th>Member</th><th>Start Date</th><th>Chapter</th>
         <th>Billing</th><th>Tier</th><th>Milestones</th><th>Score</th><th>Days In</th>
         ${showChurnCol ? '<th>Churned On</th>' : ''}
+        ${showRiskCols ? '<th>ICP</th><th>Waitlisted</th>' : ''}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
