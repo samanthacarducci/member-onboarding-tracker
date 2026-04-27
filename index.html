@@ -656,7 +656,7 @@ document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
-    ['overview','members','risk','waitlist','ai'].forEach(id => document.getElementById('tab-'+id).style.display='none');
+    ['overview','members','risk','waitlist'].forEach(id => document.getElementById('tab-'+id).style.display='none');
     document.getElementById('tab-'+t.dataset.tab).style.display = 'block';
     if (t.dataset.tab === 'members') renderTable();
     if (t.dataset.tab === 'risk') renderRisk();
