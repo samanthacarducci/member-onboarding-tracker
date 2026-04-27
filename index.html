@@ -246,7 +246,6 @@ canvas{max-width:100%;}
     <div class="tab" data-tab="members">Member Detail</div>
     <div class="tab" data-tab="risk">At-Risk &amp; Churned</div>
     <div class="tab" data-tab="waitlist">Waitlist</div>
-    <div class="tab" data-tab="ai">Ask Claude</div>
   </div>
 
   <!-- OVERVIEW -->
@@ -402,31 +401,6 @@ canvas{max-width:100%;}
   </div>
 
   <!-- ASK CLAUDE -->
-  <div id="tab-ai" class="main" style="display:none;">
-    <div class="panel">
-      <div class="panel-title">Ask Claude About Your Cohort</div>
-      <div class="api-key-note">Sends your cohort data to Claude for analysis. API key stored in memory only for this session.</div>
-      <div class="api-key-row">
-        <input class="api-key-input" id="api-key-input" type="password" placeholder="sk-ant-api03-…">
-        <button class="key-btn" onclick="setApiKey()">Set Key</button>
-      </div>
-      <div class="suggested-qs">
-        <div class="sq" onclick="askSuggested(this)">Which members are most at risk of churning?</div>
-        <div class="sq" onclick="askSuggested(this)">How are monthly vs annual members tracking?</div>
-        <div class="sq" onclick="askSuggested(this)">Which milestones are lagging most?</div>
-        <div class="sq" onclick="askSuggested(this)">What actions should we prioritize this week?</div>
-        <div class="sq" onclick="askSuggested(this)">How are waitlisted members activating vs non-waitlisted?</div>
-      </div>
-      <div class="chat-msgs" id="chat-msgs">
-        <div class="msg msg-ai">👋 Hi! I have live context on your onboarding cohort including waitlist data. Ask me anything.</div>
-      </div>
-      <div class="chat-input-row">
-        <input class="chat-input" id="chat-input" placeholder="Ask about your cohort…" onkeydown="if(event.key==='Enter')sendChat()">
-        <button class="send-btn" id="send-btn" onclick="sendChat()">Send</button>
-      </div>
-    </div>
-  </div>
-
   <!-- DRILLDOWN MODAL -->
   <div id="drilldown-modal">
     <div id="drilldown-overlay" onclick="closeDrilldown()"></div>
@@ -1031,58 +1005,6 @@ function renderWaitlist() {
   }
 }
 
-// ── AI CHAT
-function setApiKey(){
-  const v=document.getElementById('api-key-input').value.trim();
-  if(!v){alert('Please enter an API key.');return;}
-  apiKey=v; localStorage.setItem('pavilion_api_key',v);
-  document.getElementById('api-key-input').value='••••••••••••••••••••';
-  addMsg('ai','✅ API key set and saved! Ask anything about your cohort.');
-}
-function addMsg(role,text){
-  const d=document.createElement('div');d.className='msg msg-'+role;d.textContent=text;
-  const c=document.getElementById('chat-msgs');c.appendChild(d);c.scrollTop=c.scrollHeight;return d;
-}
-function askSuggested(el){document.getElementById('chat-input').value=el.textContent;sendChat();}
-async function sendChat(){
-  const input=document.getElementById('chat-input'),q=input.value.trim();
-  if(!q)return;if(!apiKey){addMsg('ai','⚠️ Please set your Anthropic API key first.');return;}
-  input.value=''; addMsg('user',q);
-  const btn=document.getElementById('send-btn');btn.disabled=true;
-  const loadMsg=addMsg('ai','Analyzing…');loadMsg.classList.add('loading');
-  const tierCounts={}; TIERS.forEach(t=>tierCounts[t]=0); RAW.forEach(r=>{if(tierCounts[r.tier]!==undefined)tierCounts[r.tier]++;});
-  const wlMembers=RAW.filter(r=>r.waitlist&&r.waitlist.length>0);
-  const summary={
-    total:RAW.length, monthly:RAW.filter(r=>r.billing==='Monthly').length,
-    yearly:RAW.filter(r=>r.billing==='Yearly').length,
-    churned:RAW.filter(r=>r.tier==='Churned').length,
-    atRisk:RAW.filter(r=>r.tier==='At Risk').length,
-    referrals:RAW.filter(r=>r.totalReferrals>=1).length,
-    tier_breakdown:tierCounts,
-    milestone_completion:Object.fromEntries(['hasConcierge','hasInitiation','hasDinner','hasSlack','hasCourse'].map((k,i)=>[MS_LABELS[i],RAW.filter(r=>r[k]).length])),
-    waitlist:{total:wlMembers.length, general:wlMembers.filter(r=>r.waitlist==='General').length, priority:wlMembers.filter(r=>r.waitlist==='Priority').length},
-    program_start:'February 15 2026', target:'90%',
-    members_sample:RAW.slice(0,30)
-  };
-  try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',max_tokens:1000,
-        system:`You are an analyst for Pavilion, a GTM/revenue community. 90-day Executive onboarding (launched Feb 15 2026). Goal: 90% Y1 retention. Tiers: Not Started, In Progress, Fully Activated, Failure to Launch (60+ days, ≤3 milestones), Cancel Requested (scheduled cancel in future), Churned (cancel date passed or Churned On set). 5 milestones: Sales Touch/Onboarding, Initiation Call, Dinner, Slack (2+ msgs in last 12 months), Course Enrolled. Monthly = highest churn risk. Be direct, specific. Data: ${JSON.stringify(summary)}`,
-        messages:[{role:'user',content:q}]
-      })
-    });
-    const data=await resp.json();
-    loadMsg.remove();
-    if(!resp.ok){addMsg('ai','API error '+resp.status+': '+(data.error?.message||JSON.stringify(data)));btn.disabled=false;return;}
-    addMsg('ai',data.content?.find(b=>b.type==='text')?.text||'No response.');
-  }catch(e){loadMsg.remove();addMsg('ai','Error: '+e.message);}
-  btn.disabled=false;
-}
-
-
 // ── DRILLDOWN
 function showDrilldown(title, members) {
   if (!members || members.length === 0) return;
@@ -1127,7 +1049,6 @@ function closeDrilldown() {
 }
 
 init();
-if(apiKey){const inp=document.getElementById('api-key-input');if(inp)inp.value='••••••••••••••••••••';}
 </script>
 </body>
 </html>
