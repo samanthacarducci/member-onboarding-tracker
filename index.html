@@ -573,11 +573,12 @@ function processRows(csvRows) {
         atRiskDate:      r['Member Became At Risk On'] || '',
         churnedDate:     r['Churned On'] || '',
         memberAtRiskFor, savedOn,
-        slackMessages:   parseNum(r['Slack Messages (All Time)']),
-        totalReferrals:  parseNum(r['Total Referrals']),
-        waitlist:        r['Waitlist'] || '',
-        invitedOff:      r['Invited Off Waitlist'] || '',
-        icp:             r['ICP'] || '',
+        slackMessages:        parseNum(r['Slack Messages (All Time)']),
+        totalReferrals:       parseNum(r['Total Referrals']),
+        waitlist:             r['Waitlist'] || '',
+        invitedOff:           r['Invited Off Waitlist'] || '',
+        icp:                  r['ICP'] || '',
+        primaryAtRiskReason:  r['Primary At Risk Reason'] || '',
         ...ms
       };
       obj.tier = getTier(obj, ms, daysIn);
@@ -1025,7 +1026,9 @@ function showDrilldown(title, members) {
     <td><span style="font-size:11px;color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'}">${r.billing||'—'}</span></td>
     <td>${tierPill(r.tier)}${r.isSaved?'<span class="saved-badge">✓ Saved</span>':''}</td>
     <td><div class="ms-dots">${msDotsHtml(r)}</div></td>
-    <td style="font-weight:700;font-size:13px;color:var(--purple-300);">${r.milestoneCount}/5</td>
+    ${showRiskCols
+      ? `<td style="font-size:11px;color:var(--pink-400);">${r.primaryAtRiskReason || '—'}</td>`
+      : `<td style="font-weight:700;font-size:13px;color:var(--purple-300);">${r.milestoneCount}/5</td>`}
     <td style="font-size:11px;color:var(--text-muted);">${r.daysIn}d</td>
     ${showChurnCol ? `<td style="font-size:11px;color:#F87171;">${fmt(r.churnedDate)}</td>` : ''}
     ${showRiskCols ? `<td style="font-size:11px;">${icpVal}</td><td style="font-size:11px;">${wlVal}</td>` : ''}
@@ -1035,7 +1038,7 @@ function showDrilldown(title, members) {
     <table class="tbl" style="margin-top:12px;">
       <thead><tr>
         <th>Member</th><th>Start Date</th><th>Chapter</th>
-        <th>Billing</th><th>Tier</th><th>Milestones</th><th>Score</th><th>Days In</th>
+        <th>Billing</th><th>Tier</th><th>Milestones</th><th>${showRiskCols ? 'Primary At Risk Reason' : 'Score'}</th><th>Days In</th>
         ${showChurnCol ? '<th>Churned On</th>' : ''}
         ${showRiskCols ? '<th>ICP</th><th>Waitlisted</th>' : ''}
       </tr></thead>
