@@ -579,6 +579,7 @@ function processRows(csvRows) {
         invitedOff:           r['Invited Off Waitlist'] || '',
         icp:                  r['ICP'] || '',
         primaryAtRiskReason:  r['Primary At Risk Reason'] || '',
+        digitalOnly:          cellTrue(r, 'Digital Only Membership'),
         ...ms
       };
       obj.tier = getTier(obj, ms, daysIn);
@@ -1012,6 +1013,7 @@ function showDrilldown(title, members) {
   document.getElementById('drilldown-title').textContent = title + ' (' + members.length + ' members)';
   const showChurnCol = members.some(r => r.churnedDate);
   const showRiskCols = title === 'At Risk' || title === 'Churned';
+  const showSavedCols = title === 'Saved';
   const rows = members.map(r => {
     const icpVal = r.icp && r.icp.toLowerCase() !== 'false' && r.icp.trim() !== '' && r.icp !== '0'
       ? `<span style="color:var(--green);font-weight:700;">Yes</span>`
@@ -1032,6 +1034,7 @@ function showDrilldown(title, members) {
     <td style="font-size:11px;color:var(--text-muted);">${r.daysIn}d</td>
     ${showChurnCol ? `<td style="font-size:11px;color:#F87171;">${fmt(r.churnedDate)}</td>` : ''}
     ${showRiskCols ? `<td style="font-size:11px;">${icpVal}</td><td style="font-size:11px;">${wlVal}</td>` : ''}
+    ${showSavedCols ? `<td style="font-size:13px;text-align:center;">${r.digitalOnly ? '✅' : '☐'}</td>` : ''}
   </tr>`;
   }).join('');
   document.getElementById('drilldown-body').innerHTML = `
@@ -1041,6 +1044,7 @@ function showDrilldown(title, members) {
         <th>Billing</th><th>Tier</th><th>Milestones</th><th>${showRiskCols ? 'Primary At Risk Reason' : 'Score'}</th><th>Days In</th>
         ${showChurnCol ? '<th>Churned On</th>' : ''}
         ${showRiskCols ? '<th>ICP</th><th>Waitlisted</th>' : ''}
+        ${showSavedCols ? '<th style="text-align:center;">Digital Only</th>' : ''}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
