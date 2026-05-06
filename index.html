@@ -353,7 +353,7 @@ canvas{max-width:100%;}
       <div class="panel">
         <div class="panel-title">⚠️ At Risk — Cancel Requested <span class="panel-hint" id="cancel-count"></span></div>
         <div class="tbl-wrap"><table class="tbl">
-          <thead><tr><th>Member</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Score</th><th>Cancel Date</th><th>Saved?</th></tr></thead>
+          <thead><tr><th>Member</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Score</th><th>Cancel Date</th><th>Saved?</th><th>Risk Category</th></tr></thead>
           <tbody id="cancel-body"></tbody>
         </table></div>
       </div>
@@ -362,7 +362,7 @@ canvas{max-width:100%;}
       <div class="panel">
         <div class="panel-title">🚪 Churned Members <span class="panel-hint" id="churn-count"></span></div>
         <div class="tbl-wrap"><table class="tbl">
-          <thead><tr><th>Member</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Churned On</th></tr></thead>
+          <thead><tr><th>Member</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Churned On</th><th>Risk Category</th></tr></thead>
           <tbody id="churn-body"></tbody>
         </table></div>
       </div>
@@ -578,6 +578,7 @@ function processRows(csvRows) {
         waitlist:             r['Waitlist'] || '',
         invitedOff:           r['Invited Off Waitlist'] || '',
         icp:                  r['Pavilion ICP'] || r['ICP'] || '',
+        riskCategory:         r['Risk Category'] || '',
         primaryAtRiskReason:  r['Primary At Risk Reason'] || '',
         digitalOnly:          cellTrue(r, 'Digital Only Membership'),
         ...ms
@@ -940,12 +941,14 @@ function renderRisk(){
     <td style="font-weight:700;color:var(--purple-300);">${r.milestoneCount}/5</td>
     <td style="font-size:11px;color:#FDA4AF;">${futureDate}</td>
     <td style="font-size:11px;">${r.isSaved?'<span class="saved-badge">✓ Saved</span>':'—'}</td>
+    <td style="font-size:11px;color:var(--text-muted);">${r.riskCategory||'—'}</td>
   </tr>`;}).join('');
   document.getElementById('churn-body').innerHTML=churnRows.map(r=>`<tr>
     ${memberCell(r)}<td>${fmt(r.startDate)}</td>
     <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
     <td style="font-size:11px;">${r.billing}</td>
     <td style="font-size:11px;color:var(--red);">${fmt(r.churnedDate)}</td>
+    <td style="font-size:11px;color:var(--text-muted);">${r.riskCategory||'—'}</td>
   </tr>`).join('');
   document.getElementById('monthly-risk-body').innerHTML=monthlyRisk.map(r=>`<tr>
     ${memberCell(r)}<td>${fmt(r.startDate)}</td>
@@ -1033,7 +1036,7 @@ function showDrilldown(title, members) {
       : `<td style="font-weight:700;font-size:13px;color:var(--purple-300);">${r.milestoneCount}/5</td>`}
     <td style="font-size:11px;color:var(--text-muted);">${r.daysIn}d</td>
     ${showChurnCol ? `<td style="font-size:11px;color:#F87171;">${fmt(r.churnedDate)}</td>` : ''}
-    ${showRiskCols ? `<td style="font-size:11px;">${icpVal}</td><td style="font-size:11px;">${wlVal}</td>` : ''}
+    ${showRiskCols ? `<td style="font-size:11px;color:var(--text-muted);">${r.riskCategory||'—'}</td><td style="font-size:11px;">${icpVal}</td><td style="font-size:11px;">${wlVal}</td>` : ''}
     ${showSavedCols ? `<td style="font-size:13px;text-align:center;">${r.digitalOnly ? '✅' : '☐'}</td>` : ''}
   </tr>`;
   }).join('');
@@ -1043,7 +1046,7 @@ function showDrilldown(title, members) {
         <th>Member</th><th>Start Date</th><th>Chapter</th>
         <th>Billing</th><th>Tier</th><th>Milestones</th><th>${showRiskCols ? 'Primary At Risk Reason' : 'Score'}</th><th>Days In</th>
         ${showChurnCol ? '<th>Churned On</th>' : ''}
-        ${showRiskCols ? '<th>ICP</th><th>Waitlisted</th>' : ''}
+        ${showRiskCols ? '<th>Risk Category</th><th>ICP</th><th>Waitlisted</th>' : ''}
         ${showSavedCols ? '<th style="text-align:center;">Digital Only</th>' : ''}
       </tr></thead>
       <tbody>${rows}</tbody>
