@@ -577,7 +577,7 @@ function processRows(csvRows) {
         totalReferrals:       parseNum(r['Total Referrals']),
         waitlist:             r['Waitlist'] || '',
         invitedOff:           r['Invited Off Waitlist'] || '',
-        icp:                  r['ICP'] || '',
+        icp:                  r['Pavilion ICP'] || r['ICP'] || '',
         primaryAtRiskReason:  r['Primary At Risk Reason'] || '',
         digitalOnly:          cellTrue(r, 'Digital Only Membership'),
         ...ms
