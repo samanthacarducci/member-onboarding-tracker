@@ -941,14 +941,14 @@ function renderRisk(){
     <td style="font-weight:700;color:var(--purple-300);">${r.milestoneCount}/5</td>
     <td style="font-size:11px;color:#FDA4AF;">${futureDate}</td>
     <td style="font-size:11px;">${r.isSaved?'<span class="saved-badge">✓ Saved</span>':'—'}</td>
-    <td style="font-size:11px;color:var(--text-muted);">${r.riskCategory||'—'}</td>
+    <td style="font-size:11px;color:${r.riskCategory==='Individual Non-Payer'?'var(--red)':'var(--text-muted)'};">${r.riskCategory||'—'}</td>
   </tr>`;}).join('');
   document.getElementById('churn-body').innerHTML=churnRows.map(r=>`<tr>
     ${memberCell(r)}<td>${fmt(r.startDate)}</td>
     <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
     <td style="font-size:11px;">${r.billing}</td>
     <td style="font-size:11px;color:var(--red);">${fmt(r.churnedDate)}</td>
-    <td style="font-size:11px;color:var(--text-muted);">${r.riskCategory||'—'}</td>
+    <td style="font-size:11px;color:${r.riskCategory==='Individual Non-Payer'?'var(--red)':'var(--text-muted)'};">${r.riskCategory||'—'}</td>
   </tr>`).join('');
   document.getElementById('monthly-risk-body').innerHTML=monthlyRisk.map(r=>`<tr>
     ${memberCell(r)}<td>${fmt(r.startDate)}</td>
