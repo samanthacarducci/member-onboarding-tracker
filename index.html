@@ -440,6 +440,7 @@ const MS_LABELS = ['Touched by Sales','Onboarding Call','Initiation Call','Chapt
 const MS_COLORS = ['#B197FC','#998BDF','#C57FD9','#FF768F','#FCD34D','#6EE7B7'];
 
 let RAW = [], timelineChart = null, sortCol = 'startDate', sortAsc = false, apiKey = localStorage.getItem('pavilion_api_key')||'';
+let drilldownMembers = [], drilldownTitle = '', drilldownSortCol = 'startDate', drilldownSortAsc = false;
 
 // ── CSV PARSER
 function parseCSV(text) {
@@ -1013,10 +1014,40 @@ function renderWaitlist() {
 // ── DRILLDOWN
 function showDrilldown(title, members) {
   if (!members || members.length === 0) return;
-  document.getElementById('drilldown-title').textContent = title + ' (' + members.length + ' members)';
+  drilldownMembers = members;
+  drilldownTitle = title;
+  drilldownSortCol = 'startDate';
+  drilldownSortAsc = false;
+  renderDrilldownTable();
+  document.getElementById('drilldown-modal').style.display = 'flex';
+}
+function sortDrilldown(col) {
+  if (drilldownSortCol === col) drilldownSortAsc = !drilldownSortAsc;
+  else { drilldownSortCol = col; drilldownSortAsc = true; }
+  renderDrilldownTable();
+}
+function renderDrilldownTable() {
+  const title = drilldownTitle;
+  let members = [...drilldownMembers];
   const showChurnCol = members.some(r => r.churnedDate);
   const showRiskCols = title === 'At Risk' || title === 'Churned';
   const showSavedCols = title === 'Saved';
+
+  const sc = drilldownSortCol, sa = drilldownSortAsc;
+  members.sort((a, b) => {
+    let av = a[sc] ?? '', bv = b[sc] ?? '';
+    if (sc === 'startDate' || sc === 'churnedDate' || sc === 'atRiskDate') {
+      return sa ? new Date(av) - new Date(bv) : new Date(bv) - new Date(av);
+    }
+    if (sc === 'milestoneCount' || sc === 'daysIn') return sa ? av - bv : bv - av;
+    return sa ? (av > bv ? 1 : -1) : (av < bv ? 1 : -1);
+  });
+
+  document.getElementById('drilldown-title').textContent = title + ' (' + members.length + ' members)';
+
+  const arrow = col => sc === col ? (sa ? ' ↑' : ' ↓') : ' ↕';
+  const th = (col, label, extra='') => `<th onclick="sortDrilldown('${col}')" ${extra}>${label}${arrow(col)}</th>`;
+
   const rows = members.map(r => {
     const icpVal = r.icp && r.icp.toLowerCase() !== 'false' && r.icp.trim() !== '' && r.icp !== '0'
       ? `<span style="color:var(--green);font-weight:700;">Yes</span>`
@@ -1040,19 +1071,20 @@ function showDrilldown(title, members) {
     ${showSavedCols ? `<td style="font-size:13px;text-align:center;">${r.digitalOnly ? '✅' : '☐'}</td>` : ''}
   </tr>`;
   }).join('');
+
   document.getElementById('drilldown-body').innerHTML = `
     <table class="tbl" style="margin-top:12px;">
       <thead><tr>
-        <th>Member</th><th>Start Date</th><th>Chapter</th>
-        <th>Billing</th><th>Tier</th><th>Milestones</th><th>${showRiskCols ? 'Primary At Risk Reason' : 'Score'}</th><th>Days In</th>
-        ${showChurnCol ? '<th>Churned On</th>' : ''}
-        ${showRiskCols ? '<th>Risk Category</th><th>ICP</th><th>Waitlisted</th>' : ''}
+        ${th('name','Member')}${th('startDate','Start Date')}${th('chapter','Chapter')}
+        ${th('billing','Billing')}${th('tier','Tier')}<th>Milestones</th>
+        ${showRiskCols ? th('primaryAtRiskReason','Primary At Risk Reason') : th('milestoneCount','Score')}
+        ${th('daysIn','Days In')}
+        ${showChurnCol ? th('churnedDate','Churned On') : ''}
+        ${showRiskCols ? th('riskCategory','Risk Category')+'<th>ICP</th><th>Waitlisted</th>' : ''}
         ${showSavedCols ? '<th style="text-align:center;">Digital Only</th>' : ''}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
-  const modal = document.getElementById('drilldown-modal');
-  modal.style.display = 'flex';
 }
 function closeDrilldown() {
   document.getElementById('drilldown-modal').style.display = 'none';
