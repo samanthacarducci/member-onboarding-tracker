@@ -1066,8 +1066,9 @@ function renderDrilldownTable() {
       ? `<td style="font-size:11px;color:var(--pink-400);">${r.primaryAtRiskReason || '—'}</td>`
       : `<td style="font-weight:700;font-size:13px;color:var(--purple-300);">${r.milestoneCount}/5</td>`}
     <td style="font-size:11px;color:var(--text-muted);">${r.daysIn}d</td>
+    <td style="font-size:11px;">${icpVal}</td>
     ${showChurnCol ? `<td style="font-size:11px;color:#F87171;">${fmt(r.churnedDate)}</td>` : ''}
-    ${showRiskCols ? `<td style="font-size:11px;color:${(r.riskCategory||'').trim()==='Individual Non-Payer'?'var(--red)':'var(--text-muted)'};">${r.riskCategory||'—'}</td><td style="font-size:11px;">${icpVal}</td><td style="font-size:11px;">${wlVal}</td>` : ''}
+    ${showRiskCols ? `<td style="font-size:11px;color:${(r.riskCategory||'').trim()==='Individual Non-Payer'?'var(--red)':'var(--text-muted)'};">${r.riskCategory||'—'}</td><td style="font-size:11px;">${wlVal}</td>` : ''}
     ${showSavedCols ? `<td style="font-size:13px;text-align:center;">${r.digitalOnly ? '✅' : '☐'}</td>` : ''}
   </tr>`;
   }).join('');
@@ -1078,9 +1079,9 @@ function renderDrilldownTable() {
         ${th('name','Member')}${th('startDate','Start Date')}${th('chapter','Chapter')}
         ${th('billing','Billing')}${th('tier','Tier')}<th>Milestones</th>
         ${showRiskCols ? th('primaryAtRiskReason','Primary At Risk Reason') : th('milestoneCount','Score')}
-        ${th('daysIn','Days In')}
+        ${th('daysIn','Days In')}<th>ICP</th>
         ${showChurnCol ? th('churnedDate','Churned On') : ''}
-        ${showRiskCols ? th('riskCategory','Risk Category')+'<th>ICP</th><th>Waitlisted</th>' : ''}
+        ${showRiskCols ? th('riskCategory','Risk Category')+'<th>Waitlisted</th>' : ''}
         ${showSavedCols ? '<th style="text-align:center;">Digital Only</th>' : ''}
       </tr></thead>
       <tbody>${rows}</tbody>
