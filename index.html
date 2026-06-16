@@ -148,6 +148,7 @@ body{font-family:'Poppins',sans-serif;background:var(--blue-700);color:var(--tex
 /* TIER PILLS */
 .pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;}
 .dot{width:5px;height:5px;border-radius:50%;}
+.p-nm{background:rgba(153,139,223,.15);color:#998BDF;}   .p-nm .dot{background:#998BDF;}
 .p-ftl{background:rgba(254,177,191,.15);color:#FEB1BF;}   .p-ftl .dot{background:#FEB1BF;}
 .p-gs{background:rgba(206,198,244,.12);color:var(--blue-200);}  .p-gs .dot{background:var(--blue-200);}
 .p-eg{background:rgba(252,211,77,.15);color:var(--amber);}  .p-eg .dot{background:var(--amber);}
@@ -249,7 +250,7 @@ canvas{max-width:100%;}
   <!-- OVERVIEW -->
   <div id="tab-overview" class="main">
     <div class="note">
-      ℹ️ <span><strong>Scoring:</strong> Sales Touch = tracked only · Onboarding Call (0.5 pts) · Initiation Call (0.5 pts) · Chapter Dinner (4 pts) · Course (2 pts) · Slack 2+ msgs (1 pt) · Connections (2 pts). <strong>Failure to Launch</strong> = 0–2 pts · <strong>Getting Started</strong> = 3–5 pts · <strong>Engaged</strong> = 6–7 pts · <strong>Fully Activated</strong> = 8+ pts. <strong>At Risk</strong> = cancel requested. <strong>Churned</strong> = cancel date has passed.</span>
+      ℹ️ <span><strong>Scoring:</strong> Sales Touch = tracked only · Onboarding Call (0.5 pts) · Initiation Call (0.5 pts) · Chapter Dinner (4 pts) · Course (2 pts) · Slack 2+ msgs (1 pt) · Connections (2 pts). <strong>New Member</strong> = score 0–2, under 60 days · <strong>Failure to Launch</strong> = score 0–2, 60+ days · <strong>Getting Started</strong> = 3–5 pts · <strong>Engaged</strong> = 6–7 pts · <strong>Fully Activated</strong> = 8+ pts. <strong>At Risk</strong> = cancel requested. <strong>Churned</strong> = cancel date has passed.</span>
     </div>
     <div class="kpi-row" id="kpi-row"></div>
     <div class="sec">Activation Tiers &amp; Milestones</div>
@@ -295,7 +296,8 @@ canvas{max-width:100%;}
         </select>
         <select class="sel" id="f-tier" onchange="renderTable()">
           <option value="">All Tiers</option>
-          <option value="Failure to Launch">Failure to Launch (0–2 pts)</option>
+          <option value="New Member">New Member (0–2 pts, under 60 days)</option>
+          <option value="Failure to Launch">Failure to Launch (0–2 pts, 60+ days)</option>
           <option value="Getting Started">Getting Started (3–5 pts)</option>
           <option value="Engaged">Engaged (6–7 pts)</option>
           <option value="Fully Activated">Fully Activated (8+ pts)</option>
@@ -426,8 +428,12 @@ canvas{max-width:100%;}
         <div class="panel-title">Activation Tier Definitions</div>
         <div style="display:flex;flex-direction:column;gap:20px;margin-top:8px;">
           <div style="display:flex;align-items:flex-start;gap:14px;">
+            <span class="pill p-nm" style="flex-shrink:0;margin-top:2px;"><span class="dot"></span>New Member</span>
+            <div><div style="font-size:20px;font-weight:800;color:#998BDF;line-height:1;">0 – 2 pts · &lt;60 days</div><div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Recently joined. Still within the onboarding window.</div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:14px;">
             <span class="pill p-ftl" style="flex-shrink:0;margin-top:2px;"><span class="dot"></span>Failure to Launch</span>
-            <div><div style="font-size:20px;font-weight:800;color:#FEB1BF;line-height:1;">0 – 2 pts</div><div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Member has not meaningfully engaged. Needs immediate outreach.</div></div>
+            <div><div style="font-size:20px;font-weight:800;color:#FEB1BF;line-height:1;">0 – 2 pts · 60+ days</div><div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Member has not engaged after 60 days. Needs immediate outreach.</div></div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:14px;">
             <span class="pill p-gs" style="flex-shrink:0;margin-top:2px;"><span class="dot"></span>Getting Started</span>
@@ -463,8 +469,9 @@ canvas{max-width:100%;}
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTf6Z41iphxefgUgrLbDCDRxe0KG_Z1bfOnZlHWODsyZ-fkO7vXStFnqjGRTLCkQX9dQ_87expktBWf/pub?gid=0&single=true&output=csv';
 
 // ── TIER CONFIG: score-based tiers
-const TIERS       = ['Failure to Launch','Getting Started','Engaged','Fully Activated','At Risk','Churned'];
+const TIERS       = ['New Member','Failure to Launch','Getting Started','Engaged','Fully Activated','At Risk','Churned'];
 const TIER_COLORS = {
+  'New Member':        '#998BDF',
   'Failure to Launch': '#FEB1BF',
   'Getting Started':   '#CEC6F4',
   'Engaged':           '#FCD34D',
@@ -473,6 +480,7 @@ const TIER_COLORS = {
   'Churned':           '#F87171'
 };
 const TIER_BG = {
+  'New Member':        'rgba(153,139,223,.12)',
   'Failure to Launch': 'rgba(254,177,191,.12)',
   'Getting Started':   'rgba(206,198,244,.12)',
   'Engaged':           'rgba(252,211,77,.15)',
@@ -590,6 +598,7 @@ function getTier(r, ms, daysIn) {
   if (ms.score >= 8) return 'Fully Activated';
   if (ms.score >= 6) return 'Engaged';
   if (ms.score >= 3) return 'Getting Started';
+  if (daysIn < 60)   return 'New Member';
   return 'Failure to Launch';
 }
 
@@ -717,7 +726,7 @@ document.querySelectorAll('.tab').forEach(t => {
 });
 
 // ── HELPERS
-function tierClass(t){return{'Failure to Launch':'p-ftl','Getting Started':'p-gs','Engaged':'p-eg','Fully Activated':'p-fa','At Risk':'p-ar2','Churned':'p-ch'}[t]||'p-ftl';}
+function tierClass(t){return{'New Member':'p-nm','Failure to Launch':'p-ftl','Getting Started':'p-gs','Engaged':'p-eg','Fully Activated':'p-fa','At Risk':'p-ar2','Churned':'p-ch'}[t]||'p-nm';}
 function tierPill(t){return`<span class="pill ${tierClass(t)}"><span class="dot"></span>${t}</span>`;}
 function fmt(d){if(!d||d==='NaN')return'—';try{const p=new Date(d);return isNaN(p)?d:p.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});}catch{return d;}}
 function idCell(id){return`<span class="id-cell" title="${id}">${id}</span>`;}
