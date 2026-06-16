@@ -61,7 +61,7 @@ body{font-family:'Poppins',sans-serif;background:var(--blue-700);color:var(--tex
   padding:11px 16px;font-size:12px;color:var(--pink-400);margin-bottom:24px;display:flex;align-items:flex-start;gap:9px;line-height:1.5;}
 
 /* KPI */
-.kpi-row{display:grid;grid-template-columns:repeat(9,1fr);gap:10px;margin-bottom:24px;}
+.kpi-row{display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:24px;}
 .kpi{background:var(--card);border:1px solid var(--card-border);border-radius:14px;padding:16px;transition:background .2s,transform .2s;}
 .kpi:hover{background:var(--card-hover);transform:translateY(-2px);}
 .kpi-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:7px;}
@@ -249,7 +249,7 @@ canvas{max-width:100%;}
   <!-- OVERVIEW -->
   <div id="tab-overview" class="main">
     <div class="note">
-      ℹ️ <span><strong>Scoring:</strong> Sales Touch = tracked only · Onboarding Call (0.5 pts) · Initiation Call (0.5 pts) · Chapter Dinner (4 pts) · Course (2 pts) · Slack 2+ msgs (1 pt) · Connections (2 pts). <strong>Failure to Launch</strong> = 0–2 pts · <strong>Getting Started</strong> = 3–5 pts · <strong>Engaged</strong> = 6–8 pts · <strong>Fully Activated</strong> = 9+ pts. <strong>At Risk</strong> = cancel requested. <strong>Churned</strong> = cancel date has passed.</span>
+      ℹ️ <span><strong>Scoring:</strong> Sales Touch = tracked only · Onboarding Call (0.5 pts) · Initiation Call (0.5 pts) · Chapter Dinner (4 pts) · Course (2 pts) · Slack 2+ msgs (1 pt) · Connections (2 pts). <strong>Failure to Launch</strong> = 0–2 pts · <strong>Getting Started</strong> = 3–5 pts · <strong>Engaged</strong> = 6–7 pts · <strong>Fully Activated</strong> = 8+ pts. <strong>At Risk</strong> = cancel requested. <strong>Churned</strong> = cancel date has passed.</span>
     </div>
     <div class="kpi-row" id="kpi-row"></div>
     <div class="sec">Activation Tiers &amp; Milestones</div>
@@ -297,8 +297,8 @@ canvas{max-width:100%;}
           <option value="">All Tiers</option>
           <option value="Failure to Launch">Failure to Launch (0–2 pts)</option>
           <option value="Getting Started">Getting Started (3–5 pts)</option>
-          <option value="Engaged">Engaged (6–8 pts)</option>
-          <option value="Fully Activated">Fully Activated (9+ pts)</option>
+          <option value="Engaged">Engaged (6–7 pts)</option>
+          <option value="Fully Activated">Fully Activated (8+ pts)</option>
           <option value="At Risk">At Risk (Cancel Requested)</option>
           <option value="Churned">Churned</option>
           <option value="Saved Only">Saved Only</option>
@@ -435,11 +435,11 @@ canvas{max-width:100%;}
           </div>
           <div style="display:flex;align-items:flex-start;gap:14px;">
             <span class="pill p-eg" style="flex-shrink:0;margin-top:2px;"><span class="dot"></span>Engaged</span>
-            <div><div style="font-size:20px;font-weight:800;color:var(--amber);line-height:1;">6 – 8 pts</div><div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Actively participating. One or two high-value activities remaining.</div></div>
+            <div><div style="font-size:20px;font-weight:800;color:var(--amber);line-height:1;">6 – 7 pts</div><div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Actively participating. One or two high-value activities remaining.</div></div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:14px;">
             <span class="pill p-fa" style="flex-shrink:0;margin-top:2px;"><span class="dot"></span>Fully Activated</span>
-            <div><div style="font-size:20px;font-weight:800;color:var(--green);line-height:1;">9+ pts</div><div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Deeply embedded in the Pavilion community. Highest retention probability.</div></div>
+            <div><div style="font-size:20px;font-weight:800;color:var(--green);line-height:1;">8+ pts</div><div style="font-size:11.5px;color:var(--text-muted);margin-top:4px;">Deeply embedded in the Pavilion community. Highest retention probability.</div></div>
           </div>
         </div>
       </div>
@@ -587,7 +587,7 @@ function getTier(r, ms, daysIn) {
       if (!isNaN(cancelDate) && cancelDate > today) return 'At Risk';
     }
   }
-  if (ms.score >= 9) return 'Fully Activated';
+  if (ms.score >= 8) return 'Fully Activated';
   if (ms.score >= 6) return 'Engaged';
   if (ms.score >= 3) return 'Getting Started';
   return 'Failure to Launch';
@@ -761,17 +761,15 @@ function renderKPIs() {
   const el = document.getElementById('kpi-row');
   const saved       = RAW.filter(r=>r.isSaved).length;
   const cancelReq   = RAW.filter(r=>r.tier==='At Risk').length;
-  const connections = RAW.filter(r=>r.hasConnections).length;
   const kpiList = [
-    {label:'Total Members',      val:total,       sub:'Since Feb 15',                                              cls:'c-white',  fn:()=>RAW},
-    {label:'Monthly Members',    val:monthly,     sub:`${total?Math.round(monthly/total*100):0}% — highest risk`,  cls:'c-amber',  fn:()=>RAW.filter(r=>r.billing==='Monthly')},
-    {label:'Fully Activated',    val:fullyAct,    sub:`${total?Math.round(fullyAct/total*100):0}% — 9+ pts`,       cls:'c-green',  fn:()=>RAW.filter(r=>r.tier==='Fully Activated')},
-    {label:'Failure to Launch',  val:ftl,         sub:'Score 0–2 pts',                                             cls:'c-pink',   fn:()=>RAW.filter(r=>r.tier==='Failure to Launch')},
-    {label:'With Connections',   val:connections, sub:`${total?Math.round(connections/total*100):0}% have Orbiit match`, cls:'c-purple',fn:()=>RAW.filter(r=>r.hasConnections)},
-    {label:'At Risk',            val:cancelReq,   sub:'Cancel requested',                                          cls:'c-pink',   fn:()=>RAW.filter(r=>r.tier==='At Risk')},
-    {label:'Churned',            val:churned,     sub:`${total?Math.round(churned/total*100):0}% of cohort`,       cls:'c-red',    fn:()=>RAW.filter(r=>r.tier==='Churned')},
-    {label:'Made a Referral',    val:referrals,   sub:`${total?Math.round(referrals/total*100):0}% of members`,    cls:'c-purple', fn:()=>RAW.filter(r=>r.totalReferrals>=1)},
-    {label:'Saved',              val:saved,       sub:'Retained after cancel',                                     cls:'c-green',  fn:()=>RAW.filter(r=>r.isSaved)},
+    {label:'Total Members',      val:total,     sub:'Since Feb 15',                                              cls:'c-white',  fn:()=>RAW},
+    {label:'Monthly Members',    val:monthly,   sub:`${total?Math.round(monthly/total*100):0}% — highest risk`,  cls:'c-amber',  fn:()=>RAW.filter(r=>r.billing==='Monthly')},
+    {label:'Fully Activated',    val:fullyAct,  sub:`${total?Math.round(fullyAct/total*100):0}% — 8+ pts`,       cls:'c-green',  fn:()=>RAW.filter(r=>r.tier==='Fully Activated')},
+    {label:'Failure to Launch',  val:ftl,       sub:'Score 0–2 pts',                                             cls:'c-pink',   fn:()=>RAW.filter(r=>r.tier==='Failure to Launch')},
+    {label:'At Risk',            val:cancelReq, sub:'Cancel requested',                                          cls:'c-pink',   fn:()=>RAW.filter(r=>r.tier==='At Risk')},
+    {label:'Churned',            val:churned,   sub:`${total?Math.round(churned/total*100):0}% of cohort`,       cls:'c-red',    fn:()=>RAW.filter(r=>r.tier==='Churned')},
+    {label:'Made a Referral',    val:referrals, sub:`${total?Math.round(referrals/total*100):0}% of members`,    cls:'c-purple', fn:()=>RAW.filter(r=>r.totalReferrals>=1)},
+    {label:'Saved',              val:saved,     sub:'Retained after cancel',                                     cls:'c-green',  fn:()=>RAW.filter(r=>r.isSaved)},
   ];
   el.innerHTML = '';
   kpiList.forEach(k=>{
