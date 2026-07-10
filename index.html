@@ -245,6 +245,7 @@ canvas{max-width:100%;}
     <div class="tab" data-tab="risk">At-Risk &amp; Churned</div>
     <div class="tab" data-tab="waitlist">Waitlist</div>
     <div class="tab" data-tab="key">Scoring Key</div>
+    <div class="tab" data-tab="retention">Renewal Tracking</div>
   </div>
 
   <!-- OVERVIEW -->
@@ -452,6 +453,43 @@ canvas{max-width:100%;}
     </div>
   </div>
 
+  <!-- RENEWAL TRACKING TAB -->
+  <div id="tab-retention" class="main" style="display:none;">
+    <div class="note">
+      ℹ️ <span><strong>Rolling 90-day renewal window:</strong> Shows executive members whose most recent billing renewal fell within the past 90 days, and whether they retained or churned. Primarily reflects monthly billing members — annual members joined after Feb 2026 and haven't reached their first annual renewal yet.</span>
+    </div>
+    <div class="kpi-row" id="ret-kpi-row" style="grid-template-columns:repeat(5,1fr);"></div>
+    <div class="sec">Renewal Outcomes by Activation Tier</div>
+    <div class="g2">
+      <div class="panel">
+        <div class="panel-title">Renewal Rate by Tier <span class="panel-hint">retained / total in window</span></div>
+        <div id="ret-tier-list" style="margin-top:4px;"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Milestone Completion <span class="panel-hint">% of Retained vs Churned</span></div>
+        <div id="ret-ms-compare" style="margin-top:4px;"></div>
+      </div>
+    </div>
+    <div class="sec">Member Detail</div>
+    <div class="panel">
+      <div class="panel-title">Members in 90-Day Renewal Window <span class="panel-hint" id="ret-count"></span></div>
+      <div style="overflow-x:auto;margin-top:8px;">
+        <table class="tbl">
+          <thead><tr>
+            <th>Member</th>
+            <th>Billing</th>
+            <th>Start Date</th>
+            <th>Last Renewal</th>
+            <th>Score</th>
+            <th>Tier at Renewal</th>
+            <th>Outcome</th>
+          </tr></thead>
+          <tbody id="ret-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- DRILLDOWN MODAL -->
   <div id="drilldown-modal">
     <div id="drilldown-overlay" onclick="closeDrilldown()"></div>
@@ -607,6 +645,7 @@ function processRows(csvRows) {
   const today = new Date();
   return csvRows
     .filter(r => r['Membership Start Date'] && r['Membership Start Date'].length > 0)
+    .filter(r => (r['Subscription Type'] || '').trim().toLowerCase().includes('executive'))
     .filter(r => !r['Premium Type'] || r['Premium Type'].trim() === '')
     .map(r => {
       const ms = getMilestones(r);
@@ -718,10 +757,11 @@ document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
-    ['overview','members','risk','waitlist','key'].forEach(id => document.getElementById('tab-'+id).style.display='none');
+    ['overview','members','risk','waitlist','key','retention'].forEach(id => document.getElementById('tab-'+id).style.display='none');
     document.getElementById('tab-'+t.dataset.tab).style.display = 'block';
     if (t.dataset.tab === 'members') renderTable();
     if (t.dataset.tab === 'risk') renderRisk();
+    if (t.dataset.tab === 'retention') renderRetention();
   });
 });
 
@@ -1148,6 +1188,117 @@ function renderDrilldownTable() {
 }
 function closeDrilldown() {
   document.getElementById('drilldown-modal').style.display = 'none';
+}
+
+// ── RENEWAL TRACKING
+function computeLastRenewal(startDateStr, billing) {
+  const start = new Date(startDateStr);
+  if (!startDateStr || isNaN(start)) return null;
+  const today = new Date();
+  let mo;
+  if (billing === 'Monthly') mo = 1;
+  else if (billing === 'Yearly' || billing === 'Annual') mo = 12;
+  else if (billing === 'Every-3-months') mo = 3;
+  else if (billing === 'Every-15-months') mo = 15;
+  else return null;
+  // Step one cycle forward from start — that's the first renewal
+  let d = new Date(start);
+  d.setMonth(d.getMonth() + mo);
+  if (d > today) return null; // no renewal has occurred yet
+  // Advance until the next cycle would exceed today
+  let last = new Date(d);
+  while (true) {
+    const next = new Date(last);
+    next.setMonth(next.getMonth() + mo);
+    if (next > today) break;
+    last = next;
+  }
+  return last;
+}
+
+function getRenewalCohort() {
+  const today = new Date();
+  const windowStart = new Date(today);
+  windowStart.setDate(windowStart.getDate() - 90);
+  return RAW.map(r => {
+    const lastRenewal = computeLastRenewal(r.startDate, r.billing);
+    if (!lastRenewal || lastRenewal < windowStart) return null;
+    return { ...r, lastRenewal, outcome: r.isChurned ? 'Churned' : 'Retained' };
+  }).filter(Boolean);
+}
+
+function renderRetention() {
+  const cohort   = getRenewalCohort();
+  const retained = cohort.filter(r => r.outcome === 'Retained');
+  const churned  = cohort.filter(r => r.outcome === 'Churned');
+  const total    = cohort.length;
+  const retRate  = total ? Math.round(retained.length / total * 100) : 0;
+  const avgR     = retained.length ? (retained.reduce((s,r)=>s+r.score,0)/retained.length).toFixed(1) : '—';
+  const avgC     = churned.length  ? (churned.reduce((s,r)=>s+r.score,0)/churned.length).toFixed(1)  : '—';
+
+  // KPIs
+  document.getElementById('ret-kpi-row').innerHTML = [
+    {label:'In Renewal Window', val:total,            sub:'Had a renewal in past 90 days', cls:'c-white'},
+    {label:'Retained',          val:retained.length,  sub:`${retRate}% renewal rate`,      cls:'c-green'},
+    {label:'Churned',           val:churned.length,   sub:`${total?Math.round(churned.length/total*100):0}% of window`, cls:'c-red'},
+    {label:'Avg Score — Retained', val:avgR,          sub:'activation pts',                cls:'c-purple'},
+    {label:'Avg Score — Churned',  val:avgC,          sub:'activation pts',                cls:'c-pink'},
+  ].map(k=>`<div class="kpi"><div class="kpi-label">${k.label}</div><div class="kpi-val ${k.cls}">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
+
+  // Renewal rate by tier
+  const tierEl = document.getElementById('ret-tier-list');
+  tierEl.innerHTML = '';
+  ['Failure to Launch','New Member','Getting Started','Engaged','Fully Activated'].forEach(tier => {
+    const inTier = cohort.filter(r => r.tier === tier);
+    if (!inTier.length) return;
+    const kept = inTier.filter(r => r.outcome === 'Retained');
+    const rate = Math.round(kept.length / inTier.length * 100);
+    const col  = TIER_COLORS[tier];
+    tierEl.innerHTML += `<div class="f-row" style="margin-bottom:8px;">
+      <div class="f-name" style="color:${col};width:150px;">${tier}</div>
+      <div class="f-track"><div class="f-bar" style="width:${rate}%;background:${TIER_BG[tier]};border-left:3px solid ${col};"></div></div>
+      <div class="f-right"><span class="f-count" style="color:${col};">${rate}%</span><span class="f-pct">(${kept.length}/${inTier.length})</span></div>
+    </div>`;
+  });
+
+  // Milestone comparison: retained vs churned
+  const msEl = document.getElementById('ret-ms-compare');
+  msEl.innerHTML = '';
+  const msKeys   = ['hasOnboardingCall','hasInitiation','hasDinner','hasCourse','hasSlack'];
+  const msLbls   = ['Onboarding Call','Initiation Call','Chapter Dinner','Course Enrolled','Slack Active'];
+  const msCols   = ['#998BDF','#C57FD9','#FF768F','#6EE7B7','#FCD34D'];
+  msKeys.forEach((k, i) => {
+    const rPct = retained.length ? Math.round(retained.filter(r=>r[k]).length / retained.length * 100) : 0;
+    const cPct = churned.length  ? Math.round(churned.filter(r=>r[k]).length  / churned.length  * 100) : 0;
+    msEl.innerHTML += `<div style="margin-bottom:10px;">
+      <div class="ms-hdr">
+        <span class="ms-name">${msLbls[i]}</span>
+        <span style="display:flex;gap:12px;font-size:10px;">
+          <span style="color:var(--green);">Retained ${rPct}%</span>
+          <span style="color:var(--red);">Churned ${cPct}%</span>
+        </span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:3px;">
+        <div><div style="font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--green);margin-bottom:2px;">Retained</div>
+          <div class="ms-bg"><div class="ms-fill" style="width:${rPct}%;background:${msCols[i]};"></div></div></div>
+        <div><div style="font-size:7.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--red);margin-bottom:2px;">Churned</div>
+          <div class="ms-bg"><div class="ms-fill" style="width:${cPct}%;background:#F87171;opacity:.7;"></div></div></div>
+      </div>
+    </div>`;
+  });
+
+  // Member table
+  document.getElementById('ret-count').textContent = total + ' members';
+  const sorted = [...cohort].sort((a,b) => new Date(b.lastRenewal) - new Date(a.lastRenewal));
+  document.getElementById('ret-body').innerHTML = sorted.map(r => `<tr>
+    ${memberCell(r)}
+    <td style="font-size:11px;color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'};">${r.billing}</td>
+    <td>${fmt(r.startDate)}</td>
+    <td style="font-size:11px;">${fmt(r.lastRenewal)}</td>
+    <td style="font-weight:700;color:var(--purple-300);">${r.score}</td>
+    <td>${tierPill(r.tier)}</td>
+    <td><span style="font-weight:600;font-size:11px;color:${r.outcome==='Retained'?'var(--green)':'var(--red)'};">${r.outcome==='Retained'?'✓ Retained':'✗ Churned'}</span></td>
+  </tr>`).join('');
 }
 
 init();
