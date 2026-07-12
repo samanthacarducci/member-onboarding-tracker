@@ -799,7 +799,7 @@ function msDotsHtml(r){
 function renderKPIs() {
   const total    = RAW.length;
   const monthly  = RAW.filter(r=>r.billing==='Monthly').length;
-  const churned  = RAW.filter(r=>r.tier==='Churned').length;
+  const churned  = RAW.filter(r=>r.tier==='Churned'&&r.billing==='Monthly').length;
   const ftl      = RAW.filter(r=>r.tier==='Failure to Launch').length;
   const fullyAct = RAW.filter(r=>r.tier==='Fully Activated').length;
   const referrals= RAW.filter(r=>r.totalReferrals >= 1).length;
@@ -816,7 +816,7 @@ function renderKPIs() {
     {label:'Fully Activated',    val:fullyAct,  sub:`${total?Math.round(fullyAct/total*100):0}% — 8+ pts`,       cls:'c-green',  fn:()=>RAW.filter(r=>r.tier==='Fully Activated')},
     {label:'Failure to Launch',  val:ftl,       sub:'Score 0–2 pts',                                             cls:'c-pink',   fn:()=>RAW.filter(r=>r.tier==='Failure to Launch')},
     {label:'At Risk',            val:cancelReq, sub:'Cancel requested',                                          cls:'c-pink',   fn:()=>RAW.filter(r=>r.tier==='At Risk')},
-    {label:'Churned',            val:churned,   sub:`${total?Math.round(churned/total*100):0}% of cohort`,       cls:'c-red',    fn:()=>RAW.filter(r=>r.tier==='Churned')},
+    {label:'Churned (Monthly)',   val:churned,   sub:`${monthly?Math.round(churned/monthly*100):0}% of monthly`,  cls:'c-red',    fn:()=>RAW.filter(r=>r.tier==='Churned'&&r.billing==='Monthly')},
     {label:'Made a Referral',    val:referrals, sub:`${total?Math.round(referrals/total*100):0}% of members`,    cls:'c-purple', fn:()=>RAW.filter(r=>r.totalReferrals>=1)},
     {label:'Saved',              val:saved,     sub:'Retained after cancel',                                     cls:'c-green',  fn:()=>RAW.filter(r=>r.isSaved)},
   ];
