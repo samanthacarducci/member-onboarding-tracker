@@ -504,7 +504,8 @@ canvas{max-width:100%;}
 </div>
 
 <script>
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTf6Z41iphxefgUgrLbDCDRxe0KG_Z1bfOnZlHWODsyZ-fkO7vXStFnqjGRTLCkQX9dQ_87expktBWf/pub?gid=0&single=true&output=csv';
+const CSV_URL         = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTf6Z41iphxefgUgrLbDCDRxe0KG_Z1bfOnZlHWODsyZ-fkO7vXStFnqjGRTLCkQX9dQ_87expktBWf/pub?gid=0&single=true&output=csv';
+const RENEWAL_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTf6Z41iphxefgUgrLbDCDRxe0KG_Z1bfOnZlHWODsyZ-fkO7vXStFnqjGRTLCkQX9dQ_87expktBWf/pub?gid=1745893109&single=true&output=csv';
 
 // ── TIER CONFIG: score-based tiers
 const TIERS       = ['New Member','Failure to Launch','Getting Started','Engaged','Fully Activated','At Risk','Churned'];
@@ -530,7 +531,7 @@ const TIER_BG = {
 const MS_LABELS = ['Sales Touch','Onboarding Call','Initiation Call','Chapter Dinner','Course Enrolled','Slack (2+ msgs)','Connections'];
 const MS_COLORS = ['#B197FC','#998BDF','#C57FD9','#FF768F','#6EE7B7','#FCD34D','#DEB0EB'];
 
-let RAW = [], timelineChart = null, sortCol = 'startDate', sortAsc = false, apiKey = localStorage.getItem('pavilion_api_key')||'';
+let RAW = [], RENEWAL_RAW = [], timelineChart = null, sortCol = 'startDate', sortAsc = false, apiKey = localStorage.getItem('pavilion_api_key')||'';
 let drilldownMembers = [], drilldownTitle = '', drilldownSortCol = 'startDate', drilldownSortAsc = false;
 
 // ── CSV PARSER
@@ -616,6 +617,37 @@ function getMilestones(r) {
   return { hasSalesTouched, hasOnboardingCall, hasConcierge, hasInitiation, hasDinner, hasSlack, hasCourse, hasConnections, milestoneCount, score };
 }
 
+// ── MILESTONE LOGIC — renewal sheet (different column names: 'Touched by Sales', 'Slack Messages (Last Month)')
+function getRenewalMilestones(r) {
+  const hasSalesTouched   = cellTrue(r, 'Touched by Sales');
+  const hasOnboardingCall = cellTrue(r, 'Onboarding Call');
+  const hasConcierge      = hasSalesTouched || hasOnboardingCall;
+  const hasInitiation     = cellNotBlank(r, 'Initiation Meeting Date');
+  const hasDinner         = cellNotBlank(r, 'Date of First Dinner') || parseNum(r['No. of Dinners Registered']) > 0 || parseNum(r['No. of Dinners Attended']) > 0;
+  const slack12mo         = parseNum(r['Slack Messages (Last Month)']);
+  const slackAllTime      = parseNum(r['Slack Messages (All Time)']);
+  const hasSlack          = slack12mo >= 2 || (slack12mo === 0 && slackAllTime >= 2);
+  const hasCourse         = cellNotBlank(r, 'No. of Days to First Learn Enrollment') || parseNum(r['No. of Live Courses Enrolled In']) > 0;
+  const hasConnections    = false; // not in this sheet
+  let score = 0;
+  if (hasOnboardingCall) score += 0.5;
+  if (hasInitiation)     score += 0.5;
+  if (hasDinner)         score += 4;
+  if (hasCourse)         score += 2;
+  if (hasSlack)          score += 1;
+  const milestoneCount = [hasSalesTouched, hasOnboardingCall, hasInitiation, hasDinner, hasCourse, hasSlack].filter(Boolean).length;
+  return { hasSalesTouched, hasOnboardingCall, hasConcierge, hasInitiation, hasDinner, hasSlack, hasCourse, hasConnections, milestoneCount, score };
+}
+
+// Score → tier label ignoring churn/at-risk status (used for renewal cohort tier breakdowns)
+function scoreTierLabel(score, daysIn) {
+  if (score >= 8) return 'Fully Activated';
+  if (score >= 6) return 'Engaged';
+  if (score >= 3) return 'Getting Started';
+  if (daysIn < 60) return 'New Member';
+  return 'Failure to Launch';
+}
+
 // ── TIER LOGIC — score-based
 function getTier(r, ms, daysIn) {
   const today = new Date();
@@ -686,6 +718,62 @@ function processRows(csvRows) {
     });
 }
 
+// ── PROCESS RENEWAL ROWS (rolling 90 renewable sheet, gid=1745893109)
+function processRenewalRows(csvRows) {
+  const today       = new Date();
+  const windowStart = new Date(today);
+  windowStart.setDate(windowStart.getDate() - 90);
+  const parseDate   = s => { if (!s) return null; const d = new Date(s); return isNaN(d) ? null : d; };
+
+  return csvRows
+    .filter(r => r['Membership Start Date'] && r['Membership Start Date'].trim().length > 0)
+    .filter(r => (r['Subscription Type'] || '').trim().toLowerCase().includes('executive'))
+    .filter(r => !r['Premium Type'] || r['Premium Type'].trim() === '')
+    .map(r => {
+      const churnedOnStr = (r['Churned On'] || '').trim();
+      const termStartStr = (r['Subscription Term Start'] || '').trim();
+      const memStartStr  = (r['Membership Start Date'] || '').trim();
+      const isChurned    = churnedOnStr.length > 0;
+      // For retained: event date = term start (their renewal). For churned: event date = churn date.
+      const eventDateStr = isChurned ? churnedOnStr : termStartStr;
+      const eventDate    = parseDate(eventDateStr);
+      const memStart     = parseDate(memStartStr);
+      // Must have a valid event in the 90-day window, and not be a brand-new joiner
+      if (!eventDate || eventDate < windowStart || eventDate > today) return null;
+      if (memStart && memStart >= windowStart) return null;
+
+      const ms      = getRenewalMilestones(r);
+      const daysIn  = memStart ? Math.floor((today - memStart) / 86400000) : 0;
+      const isAtRisk = cellNotBlank(r, 'Member Became At Risk On');
+      const savedOn  = (r['Saved On'] || '').trim();
+      const isSaved  = savedOn.length > 0;
+
+      const obj = {
+        id:               r['Chargebee Customer ID'] || '—',
+        name:             r['Full Name'] || '',
+        email:            r['Email'] || '',
+        linkedinUrl:      (() => { const raw = r['LinkedIn URL'] || ''; const u = raw.replace(/<[^>]+>/g,'').trim().split(/\s/)[0]; return u && !u.startsWith('http') && u ? 'https://' + u : u; })(),
+        hubspotUrl:       (() => { const raw = r['View in Hubspot'] || ''; const m = raw.match(/href=["']?([^"'\s>]+)/); return m ? m[1] : raw; })(),
+        startDate:        memStartStr,
+        chapter:          r['Location (Chapter)'] || '',
+        billing:          r['Current Term Period'] || '',
+        isChurned, isAtRisk, isSaved, daysIn,
+        atRiskDate:       r['Member Became At Risk On'] || '',
+        churnedDate:      churnedOnStr,
+        savedOn,
+        totalReferrals:   parseNum(r['Total Referrals']),
+        renewalEventDate: eventDateStr,
+        outcome:          isChurned ? 'Churned' : 'Retained',
+        ...ms,
+        score:            ms.score,
+      };
+      obj.tier      = getTier(obj, ms, daysIn);
+      obj.scoreTier = scoreTierLabel(ms.score, daysIn); // tier by score only, ignoring churn status
+      return obj;
+    })
+    .filter(Boolean);
+}
+
 // ── FETCH
 async function fetchData() {
   // Try direct fetch first, fall back to CORS proxy if blocked
@@ -707,10 +795,19 @@ async function fetchData() {
   return parseCSV(text);
 }
 
+async function fetchRenewalData() {
+  const resp = await fetch(RENEWAL_CSV_URL + '&cachebust=' + Date.now(), {cache:'no-store'});
+  if (!resp.ok) throw new Error('renewal ' + resp.status);
+  return parseCSV(await resp.text());
+}
+
 async function refreshData() {
   document.querySelector('.sync-dot').style.background = '#FCD34D';
   try {
-    RAW = processRows(await fetchData());
+    [RAW, RENEWAL_RAW] = await Promise.all([
+      fetchData().then(processRows),
+      fetchRenewalData().then(processRenewalRows).catch(() => [])
+    ]);
     renderAll();
     document.querySelector('.sync-dot').style.background = '#6EE7B7';
     document.getElementById('as-of-date').textContent = 'Updated ' + new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
@@ -721,7 +818,10 @@ async function refreshData() {
 
 async function init() {
   try {
-    RAW = processRows(await fetchData());
+    [RAW, RENEWAL_RAW] = await Promise.all([
+      fetchData().then(processRows),
+      fetchRenewalData().then(processRenewalRows).catch(() => [])
+    ]);
     document.getElementById('loading-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     document.getElementById('as-of-date').textContent = 'Updated ' + new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
@@ -1191,44 +1291,8 @@ function closeDrilldown() {
 }
 
 // ── RENEWAL TRACKING
-function computeLastRenewal(startDateStr, billing) {
-  const start = new Date(startDateStr);
-  if (!startDateStr || isNaN(start)) return null;
-  const today = new Date();
-  let mo;
-  if (billing === 'Monthly') mo = 1;
-  else if (billing === 'Yearly' || billing === 'Annual') mo = 12;
-  else if (billing === 'Every-3-months') mo = 3;
-  else if (billing === 'Every-15-months') mo = 15;
-  else return null;
-  // Step one cycle forward from start — that's the first renewal
-  let d = new Date(start);
-  d.setMonth(d.getMonth() + mo);
-  if (d > today) return null; // no renewal has occurred yet
-  // Advance until the next cycle would exceed today
-  let last = new Date(d);
-  while (true) {
-    const next = new Date(last);
-    next.setMonth(next.getMonth() + mo);
-    if (next > today) break;
-    last = next;
-  }
-  return last;
-}
-
-function getRenewalCohort() {
-  const today = new Date();
-  const windowStart = new Date(today);
-  windowStart.setDate(windowStart.getDate() - 90);
-  return RAW.map(r => {
-    const lastRenewal = computeLastRenewal(r.startDate, r.billing);
-    if (!lastRenewal || lastRenewal < windowStart) return null;
-    return { ...r, lastRenewal, outcome: r.isChurned ? 'Churned' : 'Retained' };
-  }).filter(Boolean);
-}
-
 function renderRetention() {
-  const cohort   = getRenewalCohort();
+  const cohort   = RENEWAL_RAW;
   const retained = cohort.filter(r => r.outcome === 'Retained');
   const churned  = cohort.filter(r => r.outcome === 'Churned');
   const total    = cohort.length;
@@ -1238,18 +1302,18 @@ function renderRetention() {
 
   // KPIs
   document.getElementById('ret-kpi-row').innerHTML = [
-    {label:'In Renewal Window', val:total,            sub:'Had a renewal in past 90 days', cls:'c-white'},
-    {label:'Retained',          val:retained.length,  sub:`${retRate}% renewal rate`,      cls:'c-green'},
-    {label:'Churned',           val:churned.length,   sub:`${total?Math.round(churned.length/total*100):0}% of window`, cls:'c-red'},
-    {label:'Avg Score — Retained', val:avgR,          sub:'activation pts',                cls:'c-purple'},
-    {label:'Avg Score — Churned',  val:avgC,          sub:'activation pts',                cls:'c-pink'},
+    {label:'In Renewal Window',    val:total,           sub:'Executive members, past 90 days', cls:'c-white'},
+    {label:'Retained',             val:retained.length, sub:`${retRate}% renewal rate`,         cls:'c-green'},
+    {label:'Churned',              val:churned.length,  sub:`${total?Math.round(churned.length/total*100):0}% of window`, cls:'c-red'},
+    {label:'Avg Score — Retained', val:avgR,            sub:'activation pts',                   cls:'c-purple'},
+    {label:'Avg Score — Churned',  val:avgC,            sub:'activation pts',                   cls:'c-pink'},
   ].map(k=>`<div class="kpi"><div class="kpi-label">${k.label}</div><div class="kpi-val ${k.cls}">${k.val}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
 
-  // Renewal rate by tier
+  // Renewal rate by activation score tier (scoreTier ignores churn status so tiers are meaningful)
   const tierEl = document.getElementById('ret-tier-list');
   tierEl.innerHTML = '';
-  ['Failure to Launch','New Member','Getting Started','Engaged','Fully Activated','At Risk','Churned'].forEach(tier => {
-    const inTier = cohort.filter(r => r.tier === tier);
+  ['Failure to Launch','New Member','Getting Started','Engaged','Fully Activated'].forEach(tier => {
+    const inTier = cohort.filter(r => r.scoreTier === tier);
     if (!inTier.length) return;
     const kept = inTier.filter(r => r.outcome === 'Retained');
     const rate = Math.round(kept.length / inTier.length * 100);
@@ -1264,9 +1328,9 @@ function renderRetention() {
   // Milestone comparison: retained vs churned
   const msEl = document.getElementById('ret-ms-compare');
   msEl.innerHTML = '';
-  const msKeys   = ['hasOnboardingCall','hasInitiation','hasDinner','hasCourse','hasSlack'];
-  const msLbls   = ['Onboarding Call','Initiation Call','Chapter Dinner','Course Enrolled','Slack Active'];
-  const msCols   = ['#998BDF','#C57FD9','#FF768F','#6EE7B7','#FCD34D'];
+  const msKeys = ['hasOnboardingCall','hasInitiation','hasDinner','hasCourse','hasSlack'];
+  const msLbls = ['Onboarding Call','Initiation Call','Chapter Dinner','Course Enrolled','Slack Active'];
+  const msCols = ['#998BDF','#C57FD9','#FF768F','#6EE7B7','#FCD34D'];
   msKeys.forEach((k, i) => {
     const rPct = retained.length ? Math.round(retained.filter(r=>r[k]).length / retained.length * 100) : 0;
     const cPct = churned.length  ? Math.round(churned.filter(r=>r[k]).length  / churned.length  * 100) : 0;
@@ -1289,14 +1353,14 @@ function renderRetention() {
 
   // Member table
   document.getElementById('ret-count').textContent = total + ' members';
-  const sorted = [...cohort].sort((a,b) => new Date(b.lastRenewal) - new Date(a.lastRenewal));
+  const sorted = [...cohort].sort((a,b) => new Date(b.renewalEventDate) - new Date(a.renewalEventDate));
   document.getElementById('ret-body').innerHTML = sorted.map(r => `<tr>
     ${memberCell(r)}
     <td style="font-size:11px;color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'};">${r.billing}</td>
     <td>${fmt(r.startDate)}</td>
-    <td style="font-size:11px;">${fmt(r.lastRenewal)}</td>
+    <td style="font-size:11px;">${fmt(r.renewalEventDate)}</td>
     <td style="font-weight:700;color:var(--purple-300);">${r.score}</td>
-    <td>${tierPill(r.tier)}</td>
+    <td>${tierPill(r.scoreTier)}</td>
     <td><span style="font-weight:600;font-size:11px;color:${r.outcome==='Retained'?'var(--green)':'var(--red)'};">${r.outcome==='Retained'?'✓ Retained':'✗ Churned'}</span></td>
   </tr>`).join('');
 }
