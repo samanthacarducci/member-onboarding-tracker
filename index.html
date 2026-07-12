@@ -1248,7 +1248,7 @@ function renderRetention() {
   // Renewal rate by tier
   const tierEl = document.getElementById('ret-tier-list');
   tierEl.innerHTML = '';
-  ['Failure to Launch','New Member','Getting Started','Engaged','Fully Activated'].forEach(tier => {
+  ['Failure to Launch','New Member','Getting Started','Engaged','Fully Activated','At Risk','Churned'].forEach(tier => {
     const inTier = cohort.filter(r => r.tier === tier);
     if (!inTier.length) return;
     const kept = inTier.filter(r => r.outcome === 'Retained');
