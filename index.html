@@ -141,6 +141,7 @@ body{font-family:'Poppins',sans-serif;background:var(--blue-700);color:var(--tex
 .tbl th{text-align:left;padding:9px 11px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
   color:var(--text-muted);border-bottom:1px solid var(--card-border);cursor:pointer;user-select:none;white-space:nowrap;background:var(--card);}
 .tbl th:hover{color:var(--text);}
+.tbl th.sort-active{color:var(--purple-300);}
 .tbl td{padding:10px 11px;border-bottom:1px solid rgba(206,198,244,.06);vertical-align:middle;}
 .tbl tbody tr:hover{background:rgba(255,255,255,.03);}
 .tbl tbody tr:last-child td{border-bottom:none;}
@@ -290,6 +291,11 @@ canvas{max-width:100%;}
       <div class="panel-title">All Members <span class="panel-hint" id="tbl-count"></span></div>
       <div class="tbl-controls">
         <input class="srch" id="tbl-search" placeholder="Search name, email, or chapter…" oninput="renderTable()">
+        <select class="sel" id="f-status" onchange="renderTable()">
+          <option value="">All Members</option>
+          <option value="Retained">Retained</option>
+          <option value="Churned">Churned</option>
+        </select>
         <select class="sel" id="f-billing" onchange="renderTable()">
           <option value="">All Billing</option>
           <option value="Monthly">Monthly</option>
@@ -327,16 +333,16 @@ canvas{max-width:100%;}
       <div class="ms-key" id="ms-key"></div>
       <div class="tbl-wrap">
         <table class="tbl">
-          <thead><tr>
-            <th onclick="sortTable('name')">Member ↕</th>
+          <thead><tr id="tbl-thead">
+            <th data-col="name" onclick="sortTable('name')">Member</th>
             <th>LinkedIn</th>
-            <th onclick="sortTable('startDate')">Start Date ↕</th>
-            <th onclick="sortTable('chapter')">Chapter ↕</th>
-            <th onclick="sortTable('billing')">Billing ↕</th>
-            <th onclick="sortTable('tier')">Tier ↕</th>
+            <th data-col="startDate" onclick="sortTable('startDate')">Start Date</th>
+            <th data-col="chapter" onclick="sortTable('chapter')">Chapter</th>
+            <th data-col="billing" onclick="sortTable('billing')">Billing</th>
+            <th data-col="tier" onclick="sortTable('tier')">Tier</th>
             <th>Milestones</th>
-            <th onclick="sortTable('score')">Score ↕</th>
-            <th onclick="sortTable('daysIn')">Days In ↕</th>
+            <th data-col="score" onclick="sortTable('score')">Score</th>
+            <th data-col="daysIn" onclick="sortTable('daysIn')">Days In</th>
           </tr></thead>
           <tbody id="tbl-body"></tbody>
         </table>
@@ -1090,11 +1096,14 @@ function renderMsKey() {
 function sortTable(col){if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=true;}renderTable();}
 function renderTable(){
   const q=(document.getElementById('tbl-search').value||'').toLowerCase();
+  const fs=document.getElementById('f-status').value;
   const fb=document.getElementById('f-billing').value;
   const ft=document.getElementById('f-tier').value;
   const fm=document.getElementById('f-milestone').value;
   let rows=RAW.filter(r=>{
     if(q&&!r.id.toLowerCase().includes(q)&&!r.chapter.toLowerCase().includes(q)&&!r.name.toLowerCase().includes(q)&&!r.email.toLowerCase().includes(q))return false;
+    if(fs==='Retained'&&r.isChurned)return false;
+    if(fs==='Churned'&&!r.isChurned)return false;
     if(fb&&r.billing!==fb)return false;
     if(ft==="Saved Only") { if(!r.isSaved) return false; }
     else if(ft&&r.tier!==ft) return false;
@@ -1119,7 +1128,13 @@ function renderTable(){
     <td style="font-size:11px;color:var(--text-muted);">${r.daysIn}d</td>
   </tr>`).join('');
   document.getElementById('tbl-count').textContent=`${rows.length} of ${RAW.length} members`;
-  document.getElementById('tbl-footer').textContent=`Showing ${rows.length} member${rows.length!==1?'s':''} · Click headers to sort`;
+  document.getElementById('tbl-footer').textContent=`Showing ${rows.length} member${rows.length!==1?'s':''}`;
+  document.querySelectorAll('#tbl-thead th[data-col]').forEach(th=>{
+    const col=th.dataset.col;
+    const base=th.textContent.replace(/ [↕↑↓]$/,'');
+    th.textContent=base+(col===sortCol?(sortAsc?' ↑':' ↓'):' ↕');
+    th.classList.toggle('sort-active', col===sortCol);
+  });
 }
 
 // ── RISK TAB
