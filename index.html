@@ -45,6 +45,7 @@ body{font-family:'Poppins',sans-serif;background:var(--blue-700);color:var(--tex
 .chip-blue{background:rgba(109,89,207,.22);color:var(--blue-200);border:1px solid rgba(109,89,207,.35);}
 .chip-green{background:rgba(110,231,183,.12);color:var(--green);border:1px solid rgba(110,231,183,.25);}
 .chip-current{background:rgba(197,127,217,.18);color:var(--purple-300);border:1px solid rgba(197,127,217,.3);font-weight:700;}
+.chip-amber{background:rgba(252,211,77,.12);color:var(--amber);border:1px solid rgba(252,211,77,.25);font-weight:700;}
 .chip-sync{background:rgba(110,231,183,.1);color:var(--green);border:1px solid rgba(110,231,183,.2);
   display:flex;align-items:center;gap:5px;cursor:pointer;transition:all .2s;}
 .chip-sync:hover{background:rgba(110,231,183,.18);}
@@ -233,8 +234,9 @@ canvas{max-width:100%;}
       </div>
     </div>
     <div class="hdr-r">
-      <span class="chip chip-current" id="current-retention-chip">Current: —%</span>
-      <span class="chip chip-green">Target: 90%</span>
+      <span class="chip chip-current" id="chip-total">Total: —%</span>
+      <span class="chip chip-amber" id="chip-monthly">Monthly: —%</span>
+      <span class="chip chip-green" id="chip-target">Target: 90%</span>
       <span class="chip chip-sync" onclick="refreshData()"><span class="sync-dot"></span>Live Data</span>
       <span class="as-of" id="as-of-date"></span>
     </div>
@@ -847,6 +849,34 @@ async function init() {
   }
 }
 
+function updateRetentionChips(isRenewalTab) {
+  const target  = document.getElementById('chip-target');
+  const total   = document.getElementById('chip-total');
+  const monthly = document.getElementById('chip-monthly');
+  if (isRenewalTab) {
+    const cohort   = RENEWAL_RAW;
+    const retained = cohort.filter(r => r.outcome === 'Retained').length;
+    const pct      = cohort.length ? Math.round(retained / cohort.length * 100) : 0;
+    total.textContent   = `Rolling 90: ${pct}%`;
+    monthly.style.display = 'none';
+    target.style.display  = 'none';
+  } else {
+    monthly.style.display = '';
+    target.style.display  = '';
+    // Restore labels (renderKPIs keeps the values up to date)
+    const t = total.textContent;
+    if (!t.startsWith('Total:')) {
+      // Was showing rolling 90 — restore from RAW
+      const tot   = RAW.length;
+      const chAll = RAW.filter(r=>r.tier==='Churned').length;
+      const monAll  = RAW.filter(r=>r.billing==='Monthly').length;
+      const monCh   = RAW.filter(r=>r.tier==='Churned'&&r.billing==='Monthly').length;
+      total.textContent   = `Total: ${tot?Math.round((tot-chAll)/tot*100):0}%`;
+      monthly.textContent = `Monthly: ${monAll?Math.round((monAll-monCh)/monAll*100):0}%`;
+    }
+  }
+}
+
 function renderAll() {
   renderKPIs();
   renderFunnel();
@@ -869,7 +899,8 @@ document.querySelectorAll('.tab').forEach(t => {
     document.getElementById('tab-'+t.dataset.tab).style.display = 'block';
     if (t.dataset.tab === 'members') renderTable();
     if (t.dataset.tab === 'risk') renderRisk();
-    if (t.dataset.tab === 'retention') renderRetention();
+    if (t.dataset.tab === 'retention') { renderRetention(); updateRetentionChips(true); }
+    else updateRetentionChips(false);
   });
 });
 
@@ -912,9 +943,12 @@ function renderKPIs() {
   const ftl          = RAW.filter(r=>r.tier==='Failure to Launch').length;
   const fullyAct     = RAW.filter(r=>r.tier==='Fully Activated').length;
   const referrals    = RAW.filter(r=>r.totalReferrals >= 1).length;
-  // Current retention = non-churned (all billing) / total * 100
-  const currentRetPct = total > 0 ? Math.round(((total - churnedAll) / total) * 100) : 0;
-  document.getElementById('current-retention-chip').textContent = `Current: ${currentRetPct}%`;
+  const totalRetPct   = total > 0 ? Math.round(((total - churnedAll) / total) * 100) : 0;
+  const monthlyAll    = RAW.filter(r=>r.billing==='Monthly').length;
+  const monthlyChurn  = RAW.filter(r=>r.tier==='Churned'&&r.billing==='Monthly').length;
+  const monthlyRetPct = monthlyAll > 0 ? Math.round(((monthlyAll - monthlyChurn) / monthlyAll) * 100) : 0;
+  document.getElementById('chip-total').textContent   = `Total: ${totalRetPct}%`;
+  document.getElementById('chip-monthly').textContent = `Monthly: ${monthlyRetPct}%`;
 
   const el = document.getElementById('kpi-row');
   const saved       = RAW.filter(r=>r.isSaved).length;
