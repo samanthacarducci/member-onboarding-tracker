@@ -907,12 +907,13 @@ function msDotsHtml(r){
 function renderKPIs() {
   const total    = RAW.length;
   const monthly  = RAW.filter(r=>r.billing==='Monthly').length;
-  const churned  = RAW.filter(r=>r.tier==='Churned'&&r.billing==='Monthly').length;
-  const ftl      = RAW.filter(r=>r.tier==='Failure to Launch').length;
-  const fullyAct = RAW.filter(r=>r.tier==='Fully Activated').length;
-  const referrals= RAW.filter(r=>r.totalReferrals >= 1).length;
-  // Current retention = non-churned / total * 100
-  const currentRetPct = total > 0 ? Math.round(((total - churned) / total) * 100) : 0;
+  const churned      = RAW.filter(r=>r.tier==='Churned'&&r.billing==='Monthly').length;
+  const churnedAll   = RAW.filter(r=>r.tier==='Churned').length;
+  const ftl          = RAW.filter(r=>r.tier==='Failure to Launch').length;
+  const fullyAct     = RAW.filter(r=>r.tier==='Fully Activated').length;
+  const referrals    = RAW.filter(r=>r.totalReferrals >= 1).length;
+  // Current retention = non-churned (all billing) / total * 100
+  const currentRetPct = total > 0 ? Math.round(((total - churnedAll) / total) * 100) : 0;
   document.getElementById('current-retention-chip').textContent = `Current: ${currentRetPct}%`;
 
   const el = document.getElementById('kpi-row');
