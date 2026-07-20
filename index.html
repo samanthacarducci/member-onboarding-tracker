@@ -618,25 +618,27 @@ function getMilestones(r) {
 }
 
 // ── MILESTONE LOGIC — renewal sheet (different column names: 'Touched by Sales', 'Slack Messages (Last Month)')
-function getRenewalMilestones(r) {
-  const hasSalesTouched   = cellTrue(r, 'Touched by Sales');
-  const hasOnboardingCall = cellTrue(r, 'Onboarding Call');
-  const hasConcierge      = hasSalesTouched || hasOnboardingCall;
-  const hasInitiation     = cellNotBlank(r, 'Initiation Meeting Date');
-  const hasDinner         = cellNotBlank(r, 'Date of First Dinner') || parseNum(r['No. of Dinners Registered']) > 0 || parseNum(r['No. of Dinners Attended']) > 0;
-  const slack12mo         = parseNum(r['Slack Messages (Last Month)']);
-  const slackAllTime      = parseNum(r['Slack Messages (All Time)']);
-  const hasSlack          = slack12mo >= 2 || (slack12mo === 0 && slackAllTime >= 2);
-  const hasCourse         = cellNotBlank(r, 'No. of Days to First Learn Enrollment') || parseNum(r['No. of Live Courses Enrolled In']) > 0;
-  const hasConnections    = false; // not in this sheet
-  let score = 0;
-  if (hasOnboardingCall) score += 0.5;
-  if (hasInitiation)     score += 0.5;
-  if (hasDinner)         score += 4;
-  if (hasCourse)         score += 2;
-  if (hasSlack)          score += 1;
-  const milestoneCount = [hasSalesTouched, hasOnboardingCall, hasInitiation, hasDinner, hasCourse, hasSlack].filter(Boolean).length;
-  return { hasSalesTouched, hasOnboardingCall, hasConcierge, hasInitiation, hasDinner, hasSlack, hasCourse, hasConnections, milestoneCount, score };
+// Compute last completed billing cycle date from membership start + billing cadence
+function computeLastRenewal(startDateStr, billing) {
+  const start = new Date(startDateStr);
+  if (!startDateStr || isNaN(start)) return null;
+  const today = new Date();
+  const mo = {'Monthly':1,'Yearly':12,'Annual':12,'Every-3-months':3,'Every-15-months':15}[billing];
+  if (!mo) return null;
+  const addMonths = (d, n) => {
+    const r = new Date(d);
+    r.setMonth(r.getMonth() + n);
+    return r;
+  };
+  let d = addMonths(start, mo);
+  if (d > today) return null; // no renewal has occurred yet
+  let last = d;
+  while (true) {
+    const next = addMonths(last, mo);
+    if (next > today) break;
+    last = next;
+  }
+  return last;
 }
 
 // Score → tier label ignoring churn/at-risk status (used for renewal cohort tier breakdowns)
@@ -731,18 +733,24 @@ function processRenewalRows(csvRows) {
     .filter(r => !r['Premium Type'] || r['Premium Type'].trim() === '')
     .map(r => {
       const churnedOnStr = (r['Churned On'] || '').trim();
-      const termStartStr = (r['Subscription Term Start'] || '').trim();
       const memStartStr  = (r['Membership Start Date'] || '').trim();
+      const billing      = (r['Current Term Period'] || '').trim();
       const isChurned    = churnedOnStr.length > 0;
-      // For retained: event date = term start (their renewal). For churned: event date = churn date.
-      const eventDateStr = isChurned ? churnedOnStr : termStartStr;
-      const eventDate    = parseDate(eventDateStr);
       const memStart     = parseDate(memStartStr);
+      // For churned: event date = churn date. For retained: compute last billing anniversary.
+      let eventDate, eventDateStr;
+      if (isChurned) {
+        eventDate    = parseDate(churnedOnStr);
+        eventDateStr = churnedOnStr;
+      } else {
+        eventDate = computeLastRenewal(memStartStr, billing);
+        eventDateStr = eventDate ? eventDate.toLocaleDateString('en-US') : '';
+      }
       // Must have a valid event in the 90-day window, and not be a brand-new joiner
       if (!eventDate || eventDate < windowStart || eventDate > today) return null;
       if (memStart && memStart >= windowStart) return null;
 
-      const ms      = getRenewalMilestones(r);
+      const ms      = getMilestones(r);
       const daysIn  = memStart ? Math.floor((today - memStart) / 86400000) : 0;
       const isAtRisk = cellNotBlank(r, 'Member Became At Risk On');
       const savedOn  = (r['Saved On'] || '').trim();
@@ -756,7 +764,7 @@ function processRenewalRows(csvRows) {
         hubspotUrl:       (() => { const raw = r['View in Hubspot'] || ''; const m = raw.match(/href=["']?([^"'\s>]+)/); return m ? m[1] : raw; })(),
         startDate:        memStartStr,
         chapter:          r['Location (Chapter)'] || '',
-        billing:          r['Current Term Period'] || '',
+        billing,
         isChurned, isAtRisk, isSaved, daysIn,
         atRiskDate:       r['Member Became At Risk On'] || '',
         churnedDate:      churnedOnStr,
