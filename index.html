@@ -728,10 +728,8 @@ function processRows(csvRows) {
 
 // ── PROCESS RENEWAL ROWS (rolling 90 renewable sheet, gid=1745893109)
 function processRenewalRows(csvRows) {
-  const today       = new Date();
-  const windowStart = new Date(today);
-  windowStart.setDate(windowStart.getDate() - 90);
-  const parseDate   = s => { if (!s) return null; const d = new Date(s); return isNaN(d) ? null : d; };
+  const today     = new Date();
+  const parseDate = s => { if (!s) return null; const d = new Date(s); return isNaN(d) ? null : d; };
 
   return csvRows
     .filter(r => r['Membership Start Date'] && r['Membership Start Date'].trim().length > 0)
@@ -743,18 +741,14 @@ function processRenewalRows(csvRows) {
       const billing      = (r['Current Term Period'] || '').trim();
       const isChurned    = churnedOnStr.length > 0;
       const memStart     = parseDate(memStartStr);
-      // For churned: event date = churn date. For retained: compute last billing anniversary.
-      let eventDate, eventDateStr;
+      // Compute the renewal event date for display (churn date or last billing anniversary)
+      let eventDateStr;
       if (isChurned) {
-        eventDate    = parseDate(churnedOnStr);
         eventDateStr = churnedOnStr;
       } else {
-        eventDate = computeLastRenewal(memStartStr, billing);
-        eventDateStr = eventDate ? eventDate.toLocaleDateString('en-US') : '';
+        const lastRenewal = computeLastRenewal(memStartStr, billing);
+        eventDateStr = lastRenewal ? lastRenewal.toLocaleDateString('en-US') : '';
       }
-      // Must have a valid event in the 90-day window, and not be a brand-new joiner
-      if (!eventDate || eventDate < windowStart || eventDate > today) return null;
-      if (memStart && memStart >= windowStart) return null;
 
       const ms      = getMilestones(r);
       const daysIn  = memStart ? Math.floor((today - memStart) / 86400000) : 0;
