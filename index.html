@@ -184,12 +184,6 @@ body{font-family:'Poppins',sans-serif;background:var(--blue-700);color:var(--tex
 #drilldown-body{overflow-y:auto;padding:0 20px 20px;}
 .tbl-footer{padding:10px 0;font-size:11px;color:var(--text-muted);text-align:center;}
 
-/* WAITLIST */
-.wl-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
-.wl-stat{background:var(--card);border:1px solid var(--card-border);border-radius:14px;padding:16px;}
-.wl-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:7px;}
-.wl-val{font-size:26px;font-weight:800;line-height:1;}
-.wl-sub{font-size:10.5px;color:var(--text-muted);margin-top:4px;}
 
 /* AI CHAT */
 .chat-msgs{min-height:200px;max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;margin-bottom:16px;}
@@ -248,7 +242,6 @@ canvas{max-width:100%;}
     <div class="tab active" data-tab="overview">Overview</div>
     <div class="tab" data-tab="members">Member Detail</div>
     <div class="tab" data-tab="risk">At-Risk &amp; Churned</div>
-    <div class="tab" data-tab="waitlist">Waitlist</div>
     <div class="tab" data-tab="key">Scoring Key</div>
     <div class="tab" data-tab="retention">Renewal Tracking</div>
   </div>
@@ -387,30 +380,6 @@ canvas{max-width:100%;}
           <thead><tr><th>Member</th><th>Start Date</th><th>Chapter</th><th>Days In</th><th>Score</th><th>Milestones</th></tr></thead>
           <tbody id="monthly-risk-body"></tbody>
         </table></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- WAITLIST -->
-  <div id="tab-waitlist" class="main" style="display:none;">
-    <div class="wl-stat-row" id="wl-stats"></div>
-    <div class="sec">Waitlist Members</div>
-    <div class="panel" style="margin-bottom:24px;">
-      <div class="panel-title">All Waitlisted Members <span class="panel-hint" id="wl-tbl-count"></span></div>
-      <div class="tbl-wrap"><table class="tbl">
-        <thead><tr><th>Member</th><th>Start Date</th><th>Chapter</th><th>Billing</th><th>Waitlist Type</th><th>Invited Off</th><th>Days to Join</th><th>Tier</th><th>Score</th></tr></thead>
-        <tbody id="wl-body"></tbody>
-      </table></div>
-    </div>
-    <div class="sec">Waitlist — Activation Milestones</div>
-    <div class="g12">
-      <div class="panel">
-        <div class="panel-title">Waitlist Activation Tiers</div>
-        <div class="funnel" id="wl-funnel"></div>
-      </div>
-      <div class="panel">
-        <div class="panel-title">Waitlist Milestone Completion</div>
-        <div class="ms-list" id="wl-ms-list"></div>
       </div>
     </div>
   </div>
@@ -887,7 +856,6 @@ function renderAll() {
   renderChapters();
   renderTimeline();
   renderMsKey();
-  renderWaitlist();
   if (document.getElementById('tab-members').style.display !== 'none') renderTable();
   if (document.getElementById('tab-risk').style.display !== 'none') renderRisk();
 }
@@ -897,7 +865,7 @@ document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
-    ['overview','members','risk','waitlist','key','retention'].forEach(id => document.getElementById('tab-'+id).style.display='none');
+    ['overview','members','risk','key','retention'].forEach(id => document.getElementById('tab-'+id).style.display='none');
     document.getElementById('tab-'+t.dataset.tab).style.display = 'block';
     if (t.dataset.tab === 'members') renderTable();
     if (t.dataset.tab === 'risk') renderRisk();
@@ -1211,57 +1179,6 @@ function renderRisk(){
     <td style="font-weight:700;color:var(--pink-500);">${r.score}</td>
     <td><div class="ms-dots">${msDotsHtml(r)}</div></td>
   </tr>`).join('');
-}
-
-// ── WAITLIST TAB
-function renderWaitlist() {
-  const wlMembers = RAW.filter(r => r.waitlist && r.waitlist.length > 0);
-  const general   = wlMembers.filter(r=>r.waitlist==='General').length;
-  const priority  = wlMembers.filter(r=>r.waitlist==='Priority').length;
-
-  // Avg days from invited to join
-  const daysToJoin = wlMembers
-    .filter(r=>r.invitedOff && r.startDate)
-    .map(r=>{
-      const inv=new Date(r.invitedOff), start=new Date(r.startDate);
-      return isNaN(inv)||isNaN(start)?null:Math.round((start-inv)/86400000);
-    }).filter(d=>d!==null&&d>=0);
-  const avgDays = daysToJoin.length ? Math.round(daysToJoin.reduce((a,b)=>a+b,0)/daysToJoin.length) : 0;
-  const fullyActWL = wlMembers.filter(r=>r.tier==='Fully Activated').length;
-
-  // Stats
-  const el = document.getElementById('wl-stats'); el.innerHTML = '';
-  [
-    {label:'Total Waitlisted',    val:wlMembers.length, sub:`${general} General · ${priority} Priority`, cls:'c-blue'},
-    {label:'Avg Days to Join',    val:avgDays+'d',      sub:'From invited to membership start',          cls:'c-purple'},
-    {label:'Fully Activated',     val:fullyActWL,       sub:`${wlMembers.length?Math.round(fullyActWL/wlMembers.length*100):0}% of waitlist members`,cls:'c-green'},
-    {label:'Waitlist Churned',    val:wlMembers.filter(r=>r.tier==='Churned').length, sub:'Left after joining',cls:'c-red'},
-  ].forEach(k=>{
-    el.innerHTML+=`<div class="wl-stat"><div class="wl-label">${k.label}</div><div class="wl-val ${k.cls}">${k.val}</div><div class="wl-sub">${k.sub}</div></div>`;
-  });
-
-  // Table
-  document.getElementById('wl-tbl-count').textContent = wlMembers.length + ' members';
-  document.getElementById('wl-body').innerHTML = wlMembers.map(r=>{
-    const inv=new Date(r.invitedOff), start=new Date(r.startDate);
-    const days = (!isNaN(inv)&&!isNaN(start)&&r.invitedOff) ? Math.round((start-inv)/86400000) : null;
-    return `<tr>
-      ${memberCell(r)}<td>${fmt(r.startDate)}</td>
-      <td style="font-size:11px;">${r.chapter.replace(/ \(.*\)/,'')}</td>
-      <td style="font-size:11px;color:${r.billing==='Monthly'?'var(--amber)':'var(--blue-200)'};">${r.billing}</td>
-      <td><span class="pill ${r.waitlist==='Priority'?'p-fa':'p-ip'}">${r.waitlist}</span></td>
-      <td style="font-size:11px;">${fmt(r.invitedOff)}</td>
-      <td style="font-size:11px;color:var(--text-muted);">${days!==null?days+'d':'—'}</td>
-      <td>${tierPill(r.tier)}</td>
-      <td style="font-weight:700;color:var(--purple-300);">${r.score}</td>
-    </tr>`;
-  }).join('');
-
-  // Waitlist funnel + milestones
-  if (wlMembers.length) {
-    renderFunnel(wlMembers, 'wl-funnel', null);
-    renderMilestones(wlMembers, 'wl-ms-list');
-  }
 }
 
 // ── DRILLDOWN
