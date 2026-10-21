@@ -682,19 +682,37 @@ function parseNum(v) {
 }
 
 // ── MILESTONE LOGIC
+// Only activity since the current activation counts. Win-backs (activated well after their original
+// Membership Start Date) don't get credit for dinners, courses, calls or Slack from a previous membership.
+const PRE_START_GRACE = 7; // days before activation that still count (e.g. course enrolled at signup)
 function getMilestones(r) {
+  const startDt    = new Date(activeStart(r));
+  const origDt     = new Date(r['Membership Start Date']);
+  const offset     = (isNaN(startDt) || isNaN(origDt)) ? 0 : Math.round((startDt - origDt) / 86400000);
+  const isWinback  = offset > 30;
+  const afterActivation = key => {               // dated column filled AND on/after activation (minus grace)
+    if (!cellNotBlank(r, key)) return false;
+    const d = new Date(r[key]);
+    return isNaN(d) || isNaN(startDt) || (d - startDt) / 86400000 >= -PRE_START_GRACE;
+  };
   const hasSalesTouched   = cellTrue(r, 'Touched by Sales - Meeting');
   // Column holds a status (Invited / Scheduled / Completed); only Completed counts as having had the call
   const hasOnboardingCall = (r['Onboarding Call'] || '').trim().toLowerCase() === 'completed';
   const hasConcierge      = hasSalesTouched || hasOnboardingCall;
-  const hasInitiation     = cellNotBlank(r, 'Initiation Meeting Date');
-  // Attended only — a registration without attending doesn't count
-  const hasDinner         = cellNotBlank(r, 'Date of First Dinner') || parseNum(r['No. of Dinners Attended']) > 0;
+  const hasInitiation     = afterActivation('Initiation Meeting Date');
+  // Attended only — a registration without attending doesn't count. A first dinner from a previous
+  // membership can't prove a dinner since activation, so win-backs need a first-dinner date after activation.
+  const dinnersAtt        = parseNum(r['No. of Dinners Attended']) > 0;
+  const hasDinner         = cellNotBlank(r, 'Date of First Dinner') ? afterActivation('Date of First Dinner') : (dinnersAtt && !isWinback);
   const slack12mo         = parseNum(r['Slack Messages (Last 12 Months)']);
   const slackAllTime      = parseNum(r['Slack Messages (All Time)']);
-  const hasSlack          = slack12mo >= 2 || (slack12mo === 0 && slackAllTime >= 2);
-  const hasCourse         = cellNotBlank(r, 'No. of Days to First Learn Enrollment') || parseNum(r['No. of Live Courses Enrolled In']) > 0;
-  const hasConnections    = cellNotBlank(r, 'Orbiit - Last Match At');
+  // All-time messages include a previous membership, so win-backs only count recent (12-month) Slack
+  const hasSlack          = slack12mo >= 2 || (!isWinback && slack12mo === 0 && slackAllTime >= 2);
+  // Days to First Learn Enrollment is counted from the original start; shift it to the activation date
+  const learnDaysRaw      = cellNotBlank(r, 'No. of Days to First Learn Enrollment') ? parseNum(r['No. of Days to First Learn Enrollment']) : null;
+  const coursesEnr        = parseNum(r['No. of Live Courses Enrolled In']) > 0;
+  const hasCourse         = learnDaysRaw !== null ? (learnDaysRaw - offset >= -PRE_START_GRACE) : (coursesEnr && !isWinback);
+  const hasConnections    = afterActivation('Orbiit - Last Match At');
 
   // Weighted score: Onboarding OR Initiation call 1 (either counts once; Sales Touch doesn't score), Dinner 4, Course 2, Slack 1, Connections 2
   let score = 0;
