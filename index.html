@@ -534,6 +534,23 @@ canvas{max-width:100%;}
         <option value="Yearly">Annual members</option>
         <option value="">All Exec members</option>
       </select>
+      <select class="sel" id="eng-ms" onchange="renderEngagement()">
+          <option value="">All activities</option>
+          <option value="hasSalesTouched">✓ Has Sales Touch (pre-sales)</option>
+          <option value="no-hasSalesTouched">✗ Missing Sales Touch</option>
+          <option value="hasOnboardingCall">✓ Has Onboarding Call (completed)</option>
+          <option value="no-hasOnboardingCall">✗ Missing Onboarding Call</option>
+          <option value="hasInitiation">✓ Has Initiation Call</option>
+          <option value="no-hasInitiation">✗ Missing Initiation Call</option>
+          <option value="hasDinner">✓ Has Chapter Dinner</option>
+          <option value="no-hasDinner">✗ Missing Chapter Dinner</option>
+          <option value="hasCourse">✓ Has Course Enrollment</option>
+          <option value="no-hasCourse">✗ Missing Course Enrollment</option>
+          <option value="hasSlack">✓ Has Slack (2+ msgs)</option>
+          <option value="no-hasSlack">✗ Missing Slack</option>
+          <option value="hasConnections">✓ Has Connections (Orbiit)</option>
+          <option value="no-hasConnections">✗ Missing Connections</option>
+      </select>
     </div>
     <div class="kpi-row" id="eng-kpi-row" style="grid-template-columns:repeat(6,1fr);"></div>
     <div class="sec">Product Adoption by Join Month</div>
@@ -1568,7 +1585,11 @@ function renderEngagement() {
   const win  = engWindow;
   const bill = document.getElementById('eng-billing').value;
   const billLbl = { Monthly: 'monthly', Yearly: 'annual', '': 'Exec' }[bill];
-  const list = RAW.filter(r => !isNaN(new Date(r.startDate)) && (!bill || r.billing === bill));
+  const msSel = document.getElementById('eng-ms'), msF = msSel.value;
+  const msNeg = msF.startsWith('no-'), msKey = msNeg ? msF.slice(3) : msF;
+  const msLbl = msF ? ' · ' + msSel.options[msSel.selectedIndex].text : '';
+  const list = RAW.filter(r => !isNaN(new Date(r.startDate)) && (!bill || r.billing === bill))
+    .filter(r => !msF || (msNeg ? !r[msKey] : !!r[msKey]));
   const winLbl = win ? `within ${win} days` : 'so far';
   const label = k => { const [y, mo] = k.split('-').map(Number); return new Date(y, mo - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }); };
   const prods = win ? ENG_PRODUCTS.filter(p => p.days) : ENG_PRODUCTS;   // undated products only appear under Total
@@ -1615,7 +1636,7 @@ function renderEngagement() {
     (groups[k] = groups[k] || []).push(r);
   });
   const keys = Object.keys(groups).sort();
-  document.getElementById('eng-hint').textContent = `${list.length} ${billLbl} members · ${win ? 'first ' + win + ' days' : 'total to date'}`;
+  document.getElementById('eng-hint').textContent = `${list.length} ${billLbl} members${msLbl} · ${win ? 'first ' + win + ' days' : 'total to date'}`;
 
   const cells = {};
   const cellHtml = (id, rows, p, total) => {
