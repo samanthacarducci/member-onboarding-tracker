@@ -473,6 +473,23 @@ canvas{max-width:100%;}
         <option>Engaged</option>
         <option>Fully Activated</option>
       </select>
+      <select class="sel" id="coh-ms" onchange="renderCohorts()">
+          <option value="">All activities</option>
+          <option value="hasSalesTouched">✓ Has Sales Touch (pre-sales)</option>
+          <option value="no-hasSalesTouched">✗ Missing Sales Touch</option>
+          <option value="hasOnboardingCall">✓ Has Onboarding Call (0.5 pts)</option>
+          <option value="no-hasOnboardingCall">✗ Missing Onboarding Call</option>
+          <option value="hasInitiation">✓ Has Initiation Call</option>
+          <option value="no-hasInitiation">✗ Missing Initiation Call</option>
+          <option value="hasDinner">✓ Has Chapter Dinner</option>
+          <option value="no-hasDinner">✗ Missing Chapter Dinner</option>
+          <option value="hasCourse">✓ Has Course Enrollment</option>
+          <option value="no-hasCourse">✗ Missing Course Enrollment</option>
+          <option value="hasSlack">✓ Has Slack (2+ msgs)</option>
+          <option value="no-hasSlack">✗ Missing Slack</option>
+          <option value="hasConnections">✓ Has Connections (Orbiit)</option>
+          <option value="no-hasConnections">✗ Missing Connections</option>
+      </select>
       <label class="coh-toggle"><input type="checkbox" id="coh-risk-lost" onchange="renderCohorts()"> Count at-risk members as lost</label>
     </div>
     <div class="kpi-row" id="coh-kpi-row" style="grid-template-columns:repeat(5,1fr);"></div>
@@ -1253,6 +1270,13 @@ function cohColor(pct) {
   const c = COH_LO.map((lo, i) => Math.round(lo + (COH_HI[i] - lo) * t));
   return { bg: `rgb(${c.join(',')})`, fg: t > 0.55 ? '#180A5C' : '#F4E0FA' };
 }
+// Monthly members with parsed start + score tier, optionally filtered by an activity ("hasDinner" / "no-hasDinner")
+function cohMonthly(msF) {
+  const neg = msF.startsWith('no-'), key = neg ? msF.slice(3) : msF;
+  return RAW.filter(r => r.billing === 'Monthly' && !isNaN(new Date(r.startDate)))
+    .filter(r => !msF || (neg ? !r[key] : !!r[key]))
+    .map(r => ({ r, start: new Date(r.startDate), scoreTier: scoreTierLabel(r.score, r.daysIn) }));
+}
 // Churned on or before a given date (saved members never count as churned — matches getTier)
 function cohChurnedBy(r, date) {
   if (r.isSaved || !r.isChurned) return false;
@@ -1264,9 +1288,10 @@ function renderCohorts() {
   const today    = new Date();
   const tierF    = document.getElementById('coh-tier').value;
   const riskLost = document.getElementById('coh-risk-lost').checked;
-  const members  = RAW.filter(r => r.billing === 'Monthly' && !isNaN(new Date(r.startDate)))
-    .map(r => ({ r, start: new Date(r.startDate), scoreTier: scoreTierLabel(r.score, r.daysIn) }))
-    .filter(m => !tierF || m.scoreTier === tierF);
+  const msSel    = document.getElementById('coh-ms');
+  const msF      = msSel.value;
+  const members  = cohMonthly(msF).filter(m => !tierF || m.scoreTier === tierF);
+  const filterLbl = [tierF, msF ? msSel.options[msSel.selectedIndex].text : ''].filter(Boolean).join(' · ');
   const isLostNow = m => m.r.tier === 'Churned' || (riskLost && m.r.tier === 'At Risk');
 
   // Group by join month
@@ -1293,7 +1318,7 @@ function renderCohorts() {
   const m3 = pooled(3), m6 = pooled(6);
   const retNow = n ? Math.round((n - lost) / n * 100) : 0;
   const kpis = [
-    { label: 'Monthly Exec Members', val: n, sub: tierF ? tierF : 'Joined since Feb 15', cls: 'c-white', fn: () => members.map(m => m.r) },
+    { label: 'Monthly Exec Members', val: n, sub: filterLbl || 'Joined since Feb 15', cls: 'c-white', fn: () => members.map(m => m.r) },
     { label: riskLost ? 'Retained (excl. At Risk)' : 'Retained Today', val: retNow + '%', sub: `${n - lost} of ${n} · goal ${COH_GOAL}%`, cls: retNow >= COH_GOAL ? 'c-green' : 'c-amber', fn: () => members.filter(m => !isLostNow(m)).map(m => m.r) },
     { label: '3-Month Retention', val: m3 === null ? '—' : m3 + '%', sub: 'Members who reached month 3', cls: 'c-purple', fn: null },
     { label: '6-Month Retention', val: m6 === null ? '—' : m6 + '%', sub: 'Members who reached month 6', cls: 'c-purple', fn: null },
@@ -1382,12 +1407,11 @@ function renderCohorts() {
      <span style="margin-left:10px;display:inline-flex;align-items:center;gap:6px;"><span style="display:inline-block;width:18px;height:12px;border-radius:3px;background-color:rgb(120,108,190);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.3) 0 2px,transparent 2px 7px);"></span>in progress</span>
      <span style="margin-left:10px;"><span style="color:#6EE7B7;">●</span> active · <span style="color:#FF768F;">⚠</span> at risk (cancel requested) · ✕ churned</span>`;
 
-  renderCohortCurve(today, maxN, tierF);
+  renderCohortCurve(today, maxN, tierF, msF);
 }
 
-function renderCohortCurve(today, maxN, tierF) {
-  const all = RAW.filter(r => r.billing === 'Monthly' && !isNaN(new Date(r.startDate)))
-    .map(r => ({ r, start: new Date(r.startDate), scoreTier: scoreTierLabel(r.score, r.daysIn) }));
+function renderCohortCurve(today, maxN, tierF, msF) {
+  const all = cohMonthly(msF);
   const labels = []; for (let N = 1; N <= maxN; N++) labels.push('Mo ' + N);
   const curve = list => labels.map((_, i) => {
     const N = i + 1;
