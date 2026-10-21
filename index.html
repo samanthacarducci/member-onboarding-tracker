@@ -228,7 +228,7 @@ canvas{max-width:100%;}
       </div>
     </div>
     <div class="hdr-r">
-      <span class="chip chip-current" id="chip-total" style="display:none;">Total: —%</span>
+      <span class="chip chip-current" id="chip-total">Total Retention: —%</span>
       <span class="chip chip-green" id="chip-target">Goal: 90%</span>
       <span class="chip chip-amber" id="chip-monthly">Monthly Exec Retention: —%</span>
       <span class="chip chip-sync" onclick="refreshData()"><span class="sync-dot"></span>Live Data</span>
@@ -831,10 +831,12 @@ function updateRetentionChips(isRenewalTab) {
     target.style.display  = 'none';
     total.style.display   = '';
   } else {
-    // Main pages show only Goal + Monthly Exec Retention; renderKPIs keeps the monthly value current
-    total.style.display   = 'none';
     monthly.style.display = '';
     target.style.display  = '';
+    // Restore the total label after the Rolling 90 view
+    const tot   = RAW.length;
+    const chAll = RAW.filter(r=>r.tier==='Churned').length;
+    total.textContent = `Total Retention: ${tot?Math.round((tot-chAll)/tot*100):0}%`;
   }
 }
 
@@ -907,7 +909,7 @@ function renderKPIs() {
   const monthlyAll    = RAW.filter(r=>r.billing==='Monthly').length;
   const monthlyChurn  = RAW.filter(r=>r.tier==='Churned'&&r.billing==='Monthly').length;
   const monthlyRetPct = monthlyAll > 0 ? Math.round(((monthlyAll - monthlyChurn) / monthlyAll) * 100) : 0;
-  document.getElementById('chip-total').textContent   = `Total: ${totalRetPct}%`;
+  document.getElementById('chip-total').textContent   = `Total Retention: ${totalRetPct}%`;
   document.getElementById('chip-monthly').textContent = `Monthly Exec Retention: ${monthlyRetPct}%`;
 
   const el = document.getElementById('kpi-row');
