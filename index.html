@@ -1610,19 +1610,26 @@ function renderEngagement() {
   const engaged = elig.filter(r => win ? dated.some(p => didIn(r, p)) : ENG_PRODUCTS.some(p => p.did(r)));
   const none = elig.filter(r => !engaged.includes(r));
   const pctOf = (a, b) => b.length ? Math.round(a.length / b.length * 100) : 0;
+  // Retention line for a group vs everyone else in the current filter (retained = not churned, same as header chips)
+  const retLine = grp => {
+    const rest = elig.filter(r => !grp.includes(r));
+    const rate = g => g.length ? Math.round(g.filter(r => r.tier !== 'Churned').length / g.length * 100) + '%' : '—';
+    return `Retained: <b style="color:var(--text);">${rate(grp)}</b> · everyone else ${rate(rest)}`;
+  };
   kpis.push({ label: win ? `Engaged in First ${win} Days (Any Product)` : 'Engaged So Far (Any Product)', val: elig.length ? pctOf(engaged, elig) + '%' : '—',
-    sub: `${win ? 'Initiation, dinner or course' : 'Any product'} · ${engaged.length} of ${elig.length}`, rows: engaged });
+    sub: `${win ? 'Initiation, dinner or course' : 'Any product'} · ${engaged.length} of ${elig.length}`, rows: engaged, ret: retLine(engaged) });
   // Community engagement (initiation call or dinner) — the early signal linked to retention; courses excluded on purpose
   const community = dated.filter(p => p.key !== 'course');
   const commEng = elig.filter(r => community.some(p => win ? didIn(r, p) : p.did(r)));
   kpis.push({ label: win ? `Community-Engaged in First ${win} Days` : 'Community-Engaged So Far', val: elig.length ? pctOf(commEng, elig) + '%' : '—',
-    sub: `Initiation call or dinner · ${commEng.length} of ${elig.length}`, rows: commEng, cls: 'c-green' });
+    sub: `Initiation call or dinner · ${commEng.length} of ${elig.length}`, rows: commEng, cls: 'c-green', ret: retLine(commEng) });
   kpis.push({ label: win ? `No Product in First ${win} Days` : 'No Product Used Yet', val: none.length,
     sub: `${pctOf(none, elig)}% of ${elig.length} ${billLbl} members`, rows: none, cls: 'c-pink' });
   kpis.forEach(k => {
     const div = document.createElement('div');
     div.className = 'kpi';
-    div.innerHTML = `<div class="kpi-label">${k.label}</div><div class="kpi-val ${k.cls || 'c-purple'}">${k.val}</div><div class="kpi-sub">${k.sub}</div>`;
+    div.innerHTML = `<div class="kpi-label">${k.label}</div><div class="kpi-val ${k.cls || 'c-purple'}">${k.val}</div><div class="kpi-sub">${k.sub}</div>` +
+      (k.ret ? `<div class="kpi-sub" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--card-border);">${k.ret}</div>` : '');
     if (k.rows.length) div.addEventListener('click', () => showDrilldown(k.label, k.rows));
     else div.style.cursor = 'default';
     kEl.appendChild(div);
