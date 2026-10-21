@@ -211,6 +211,14 @@ body{font-family:'Poppins',sans-serif;background:var(--blue-700);color:var(--tex
 .coh-tip{position:fixed;pointer-events:none;z-index:60;background:#0F0640;border:1px solid var(--card-border);border-radius:8px;padding:8px 11px;font-size:11.5px;color:var(--text);line-height:1.5;box-shadow:0 6px 24px rgba(0,0,0,.4);display:none;max-width:260px;}
 .coh-tip b{color:#fff;}
 
+/* PRODUCT ENGAGEMENT */
+.seg-grp{display:inline-flex;background:rgba(255,255,255,.06);border:1px solid var(--card-border);border-radius:10px;padding:3px;gap:2px;}
+.seg-btn{padding:6px 13px;border-radius:7px;font-size:12px;font-weight:600;color:var(--text-muted);cursor:pointer;border:none;background:none;font-family:inherit;}
+.seg-btn:hover{color:var(--text);}
+.seg-btn.on{background:rgba(197,127,217,.25);color:#fff;}
+.coh-tbl tr.eng-total td{border-top:1px solid var(--card-border);}
+.eng-na{background:rgba(255,255,255,.02);border-radius:4px;color:rgba(206,198,244,.35);font-size:11px;}
+
 /* AI CHAT */
 .chat-msgs{min-height:200px;max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;margin-bottom:16px;}
 .msg{max-width:88%;padding:12px 15px;border-radius:12px;font-size:13px;line-height:1.55;}
@@ -267,6 +275,7 @@ canvas{max-width:100%;}
   <div class="tabs">
     <div class="tab active" data-tab="overview">Overview</div>
     <div class="tab" data-tab="cohorts">Monthly Cohorts</div>
+    <div class="tab" data-tab="engagement">Product Engagement</div>
     <div class="tab" data-tab="members">Member Detail</div>
     <div class="tab" data-tab="risk">At-Risk &amp; Churned</div>
     <div class="tab" data-tab="key">Scoring Key</div>
@@ -505,7 +514,35 @@ canvas{max-width:100%;}
       <div style="position:relative;height:300px;"><canvas id="coh-curve"></canvas></div>
       <div class="chart-legend" id="coh-curve-legend"></div>
     </div>
-    <div class="coh-tip" id="coh-tip"></div>
+  </div>
+
+  <div class="coh-tip" id="coh-tip"></div>
+
+  <!-- PRODUCT ENGAGEMENT TAB -->
+  <div id="tab-engagement" class="main" style="display:none;">
+    <div class="note">
+      ℹ️ <span><strong>Which products each join-month cohort has used.</strong> Each cell is the % of that cohort who have done it. <strong>Total</strong> counts everything so far. Newer cohorts have had less time, so use <strong>30 / 60 / 90 days</strong> to compare cohorts fairly: each member only counts once they've been a member that long. Slack and Onboarding Call have no dates, so they only show under Total. Dinners count by first-dinner date, so members with a dinner registration but no date are left out of the 30/60/90 views. Click a cell to see who.</span>
+    </div>
+    <div class="coh-controls">
+      <div class="seg-grp" id="eng-window">
+        <button class="seg-btn on" data-w="0">Total</button>
+        <button class="seg-btn" data-w="30">First 30 days</button>
+        <button class="seg-btn" data-w="60">First 60 days</button>
+        <button class="seg-btn" data-w="90">First 90 days</button>
+      </div>
+      <select class="sel" id="eng-billing" onchange="renderEngagement()">
+        <option value="Monthly">Monthly members</option>
+        <option value="Yearly">Annual members</option>
+        <option value="">All Exec members</option>
+      </select>
+    </div>
+    <div class="kpi-row" id="eng-kpi-row" style="grid-template-columns:repeat(5,1fr);"></div>
+    <div class="sec">Product Adoption by Join Month</div>
+    <div class="panel">
+      <div class="panel-title">% of Cohort Who Used Each Product <span class="panel-hint" id="eng-hint"></span></div>
+      <div class="coh-wrap"><table class="coh-tbl" id="eng-tbl" style="min-width:720px;"></table></div>
+      <div class="coh-scale" id="eng-scale"></div>
+    </div>
   </div>
 
   <!-- RENEWAL TRACKING TAB -->
@@ -768,6 +805,9 @@ function processRows(csvRows) {
         riskCategory:         r['Risk Category'] || '',
         primaryAtRiskReason:  r['Primary At Risk Reason'] || '',
         digitalOnly:          cellTrue(r, 'Digital Only Membership'),
+        firstDinnerDate:      cellNotBlank(r, 'Date of First Dinner') ? r['Date of First Dinner'] : '',
+        initiationDate:       cellNotBlank(r, 'Initiation Meeting Date') ? r['Initiation Meeting Date'] : '',
+        learnDays:            cellNotBlank(r, 'No. of Days to First Learn Enrollment') ? parseNum(r['No. of Days to First Learn Enrollment']) : null,
         ...ms
       };
       obj.tier = getTier(obj, ms, daysIn);
@@ -929,6 +969,7 @@ function renderAll() {
   if (document.getElementById('tab-members').style.display !== 'none') renderTable();
   if (document.getElementById('tab-risk').style.display !== 'none') renderRisk();
   if (document.getElementById('tab-cohorts').style.display !== 'none') renderCohorts();
+  if (document.getElementById('tab-engagement').style.display !== 'none') renderEngagement();
 }
 
 // TABS
@@ -936,11 +977,12 @@ document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
-    ['overview','cohorts','members','risk','key','retention'].forEach(id => document.getElementById('tab-'+id).style.display='none');
+    ['overview','cohorts','engagement','members','risk','key','retention'].forEach(id => document.getElementById('tab-'+id).style.display='none');
     document.getElementById('tab-'+t.dataset.tab).style.display = 'block';
     if (t.dataset.tab === 'members') renderTable();
     if (t.dataset.tab === 'risk') renderRisk();
     if (t.dataset.tab === 'cohorts') renderCohorts();
+    if (t.dataset.tab === 'engagement') renderEngagement();
     if (t.dataset.tab === 'retention') { renderRetention(); updateRetentionChips(true); }
     else updateRetentionChips(false);
   });
@@ -1456,6 +1498,127 @@ function renderCohortCurve(today, maxN, tierF, msF) {
     const cnt = s.list.length;
     return `<div class="cl-item"><div class="cl-swatch" style="background:${s.color};${s.dash ? 'opacity:.8;' : ''}"></div>${s.name} (${cnt})</div>`;
   }).join('') + `<div class="cl-item" style="opacity:.7;">┄ Goal ${COH_GOAL}% · points hidden under 5 members</div>`;
+}
+
+// ── PRODUCT ENGAGEMENT TAB
+// Each product: did it ever, and (if dated) how many days after joining
+const ENG_PRODUCTS = [
+  { key: 'onboarding', label: 'Onboarding Call', did: r => r.hasOnboardingCall, days: null },
+  { key: 'initiation', label: 'Initiation Call', did: r => r.hasInitiation, days: r => engDaysBetween(r.startDate, r.initiationDate) },
+  { key: 'dinner',     label: 'Chapter Dinner',  did: r => r.hasDinner,      days: r => engDaysBetween(r.startDate, r.firstDinnerDate) },
+  { key: 'course',     label: 'Learn Course',    did: r => r.hasCourse,      days: r => r.learnDays },
+  { key: 'slack',      label: 'Slack (2+ msgs)', did: r => r.hasSlack,       days: null },
+];
+let engWindow = 0;
+document.querySelectorAll('#eng-window .seg-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#eng-window .seg-btn').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  engWindow = Number(b.dataset.w);
+  renderEngagement();
+}));
+function engDaysBetween(a, b) {
+  const s = new Date(a), e = new Date(b);
+  return (!b || isNaN(s) || isNaN(e)) ? null : Math.round((e - s) / 86400000);
+}
+// Returns null when this product can't be measured in a time window (no dates)
+function engCell(list, p, win) {
+  if (win && !p.days) return null;
+  const el = win ? list.filter(r => r.daysIn >= win) : list;
+  const yes = el.filter(r => win ? (() => { const d = p.days(r); return d !== null && d <= win; })() : p.did(r));
+  return { el, yes, pct: el.length ? Math.round(yes.length / el.length * 100) : null };
+}
+
+function renderEngagement() {
+  const win  = engWindow;
+  const bill = document.getElementById('eng-billing').value;
+  const billLbl = { Monthly: 'monthly', Yearly: 'annual', '': 'Exec' }[bill];
+  const list = RAW.filter(r => !isNaN(new Date(r.startDate)) && (!bill || r.billing === bill));
+  const winLbl = win ? `within ${win} days` : 'so far';
+  const label = k => { const [y, mo] = k.split('-').map(Number); return new Date(y, mo - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }); };
+
+  // KPIs: how fast members engage (medians are independent of the window switch)
+  const kEl = document.getElementById('eng-kpi-row'); kEl.innerHTML = '';
+  const median = a => { if (!a.length) return null; const v = [...a].sort((x, y) => x - y), m = Math.floor(v.length / 2); return v.length % 2 ? v[m] : Math.round((v[m - 1] + v[m]) / 2); };
+  const kpis = ENG_PRODUCTS.filter(p => p.days).map(p => {
+    const dated = list.map(r => ({ r, d: p.days(r) })).filter(x => x.d !== null).map(x => ({ r: x.r, d: Math.max(0, x.d) }));
+    const med = median(dated.map(x => x.d));
+    return { label: `Median Days to First ${p.label.replace('Learn ', '')}`, val: med === null ? '—' : med + 'd',
+      sub: `${dated.length} members who did it`, rows: dated.map(x => x.r) };
+  });
+  const el30 = list.filter(r => r.daysIn >= 30);
+  const fast = el30.filter(r => ENG_PRODUCTS.some(p => p.days && (() => { const d = p.days(r); return d !== null && d <= 30; })()));
+  const none = list.filter(r => !ENG_PRODUCTS.some(p => p.did(r)));
+  kpis.push({ label: 'Engaged in First 30 Days', val: el30.length ? Math.round(fast.length / el30.length * 100) + '%' : '—', sub: `Initiation, dinner or course · ${fast.length} of ${el30.length}`, rows: fast });
+  kpis.push({ label: 'No Product Used Yet', val: none.length, sub: `${list.length ? Math.round(none.length / list.length * 100) : 0}% of ${billLbl} members`, rows: none, cls: 'c-pink' });
+  kpis.forEach(k => {
+    const div = document.createElement('div');
+    div.className = 'kpi';
+    div.innerHTML = `<div class="kpi-label">${k.label}</div><div class="kpi-val ${k.cls || 'c-purple'}">${k.val}</div><div class="kpi-sub">${k.sub}</div>`;
+    if (k.rows.length) div.addEventListener('click', () => showDrilldown(k.label, k.rows));
+    else div.style.cursor = 'default';
+    kEl.appendChild(div);
+  });
+
+  // Group by join month
+  const groups = {};
+  list.forEach(r => {
+    const d = new Date(r.startDate);
+    const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    (groups[k] = groups[k] || []).push(r);
+  });
+  const keys = Object.keys(groups).sort();
+  document.getElementById('eng-hint').textContent = `${list.length} ${billLbl} members · ${win ? 'first ' + win + ' days' : 'total to date'}`;
+
+  const cells = {};
+  const cellHtml = (id, rows, p, total) => {
+    const c = engCell(rows, p, win);
+    if (!c) return '<td class="eng-na">no date</td>';
+    if (!c.el.length) return '<td class="coh-empty"></td>';
+    const partial = win && c.el.length < total;
+    cells[id] = { ...c, p, total, partial };
+    if (partial && c.el.length < 5)
+      return `<td class="coh-cell partial" data-id="${id}" style="background-color:rgba(255,255,255,.04);color:var(--text-muted);font-weight:500;font-size:10.5px;">${c.el.length} so far</td>`;
+    const t = Math.max(0, Math.min(1, c.pct / 100));
+    const rgb = COH_LO.map((lo, i) => Math.round(lo + (COH_HI[i] - lo) * t));
+    return `<td class="coh-cell${partial ? ' partial' : ''}" data-id="${id}" style="background-color:rgb(${rgb});color:${t > 0.55 ? '#180A5C' : '#F4E0FA'};">${c.pct}%</td>`;
+  };
+
+  let html = '<thead><tr><th class="coh-left">Joined</th><th>Members</th>' + ENG_PRODUCTS.map(p => `<th>${p.label}</th>`).join('') + '</tr></thead><tbody>';
+  keys.forEach(k => {
+    const g = groups[k];
+    html += `<tr><td class="coh-name coh-left">${label(k)}</td><td class="coh-n">${g.length}</td>` +
+      ENG_PRODUCTS.map(p => cellHtml(k + '|' + p.key, g, p, g.length)).join('') + '</tr>';
+  });
+  if (keys.length) html += `<tr class="eng-total"><td class="coh-name coh-left">All cohorts</td><td class="coh-n">${list.length}</td>` +
+    ENG_PRODUCTS.map(p => cellHtml('all|' + p.key, list, p, list.length)).join('') + '</tr>';
+  else html += `<tr><td colspan="${ENG_PRODUCTS.length + 2}" style="padding:24px;color:var(--text-muted);">No members match this filter.</td></tr>`;
+  html += '</tbody>';
+  const tbl = document.getElementById('eng-tbl');
+  tbl.innerHTML = html;
+
+  const tip = document.getElementById('coh-tip');
+  tbl.querySelectorAll('.coh-cell').forEach(td => {
+    const c = cells[td.dataset.id];
+    const k = td.dataset.id.split('|')[0];
+    const who = k === 'all' ? 'All cohorts' : label(k) + ' cohort';
+    td.addEventListener('mousemove', e => {
+      tip.innerHTML = `<b>${who} · ${c.p.label}</b><br>${c.yes.length} of ${c.el.length} ${winLbl} (${c.pct}%)` +
+        (c.partial ? `<br><span style="color:var(--text-muted)">In progress: ${c.el.length} of ${c.total} have been members ${win}+ days</span>` : '') +
+        `<br><span style="color:var(--text-muted)">Click to see who has${c.yes.length ? '' : ' not'}</span>`;
+      tip.style.display = 'block';
+      tip.style.left = Math.min(e.clientX + 14, window.innerWidth - 270) + 'px';
+      tip.style.top = (e.clientY + 14) + 'px';
+    });
+    td.addEventListener('mouseleave', () => tip.style.display = 'none');
+    td.addEventListener('click', () => {
+      const rows = c.yes.length ? c.yes : c.el;
+      showDrilldown(`${who} — ${c.yes.length ? '' : 'no '}${c.p.label} ${winLbl}`, rows);
+    });
+  });
+
+  document.getElementById('eng-scale').innerHTML =
+    `<span>0%</span><div class="coh-ramp" style="background:linear-gradient(90deg,rgb(${COH_LO}),rgb(${COH_HI}));"></div><span>100%</span>
+     ${win ? `<span style="margin-left:10px;display:inline-flex;align-items:center;gap:6px;"><span style="display:inline-block;width:18px;height:12px;border-radius:3px;background-color:rgb(120,108,190);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.3) 0 2px,transparent 2px 7px);"></span>in progress — not everyone has reached ${win} days</span>` : ''}`;
 }
 
 // ── DRILLDOWN
