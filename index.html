@@ -535,7 +535,7 @@ canvas{max-width:100%;}
         <option value="">All Exec members</option>
       </select>
     </div>
-    <div class="kpi-row" id="eng-kpi-row" style="grid-template-columns:repeat(5,1fr);"></div>
+    <div class="kpi-row" id="eng-kpi-row" style="grid-template-columns:repeat(6,1fr);"></div>
     <div class="sec">Product Adoption by Join Month</div>
     <div class="panel">
       <div class="panel-title">% of Cohort Who Used Each Product <span class="panel-hint" id="eng-hint"></span></div>
@@ -1553,8 +1553,13 @@ function renderEngagement() {
   const engaged = elig.filter(r => win ? dated.some(p => didIn(r, p)) : ENG_PRODUCTS.some(p => p.did(r)));
   const none = elig.filter(r => !engaged.includes(r));
   const pctOf = (a, b) => b.length ? Math.round(a.length / b.length * 100) : 0;
-  kpis.push({ label: win ? `Engaged in First ${win} Days` : 'Engaged So Far', val: elig.length ? pctOf(engaged, elig) + '%' : '—',
+  kpis.push({ label: win ? `Engaged in First ${win} Days (Any Product)` : 'Engaged So Far (Any Product)', val: elig.length ? pctOf(engaged, elig) + '%' : '—',
     sub: `${win ? 'Initiation, dinner or course' : 'Any product'} · ${engaged.length} of ${elig.length}`, rows: engaged });
+  // Community engagement (initiation call or dinner) — the early signal linked to retention; courses excluded on purpose
+  const community = dated.filter(p => p.key !== 'course');
+  const commEng = elig.filter(r => community.some(p => win ? didIn(r, p) : p.did(r)));
+  kpis.push({ label: win ? `Community-Engaged in First ${win} Days` : 'Community-Engaged So Far', val: elig.length ? pctOf(commEng, elig) + '%' : '—',
+    sub: `Initiation call or dinner · ${commEng.length} of ${elig.length}`, rows: commEng, cls: 'c-green' });
   kpis.push({ label: win ? `No Product in First ${win} Days` : 'No Product Used Yet', val: none.length,
     sub: `${pctOf(none, elig)}% of ${elig.length} ${billLbl} members`, rows: none, cls: 'c-pink' });
   kpis.forEach(k => {
