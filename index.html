@@ -766,6 +766,17 @@ function getTier(r, ms, daysIn) {
   return 'Failure to Launch';
 }
 
+// ── START DATE: win-backs keep their original Membership Start Date, so use Subscription Activated when present
+function activeStart(r) {
+  const act = (r['Subscription Activated'] || '').trim();
+  return (act && !isNaN(new Date(act))) ? act : (r['Membership Start Date'] || '').trim();
+}
+// A churn / at-risk date from before the current activation belongs to a previous membership — ignore it
+function sinceStart(dateStr, startDt) {
+  const d = new Date(dateStr);
+  return (!dateStr || isNaN(d) || isNaN(startDt) || d >= startDt) ? (dateStr || '') : '';
+}
+
 // ── PROCESS ROWS
 function processRows(csvRows) {
   const today = new Date();
@@ -775,11 +786,16 @@ function processRows(csvRows) {
     .filter(r => !r['Premium Type'] || r['Premium Type'].trim() === '')
     .map(r => {
       const ms = getMilestones(r);
-      const startDate = r['Membership Start Date'] || '';
+      const startDate = activeStart(r);
       const startDt = new Date(startDate);
       const daysIn = isNaN(startDt) ? 0 : Math.floor((today - startDt) / 86400000);
-      const isChurned       = cellNotBlank(r, 'Churned On');
-      const isAtRisk        = cellNotBlank(r, 'Member Became At Risk On');
+      const churnedOn       = cellNotBlank(r, 'Churned On') ? sinceStart(r['Churned On'], startDt) : '';
+      const atRiskOn        = cellNotBlank(r, 'Member Became At Risk On') ? sinceStart(r['Member Became At Risk On'], startDt) : '';
+      const isChurned       = churnedOn.length > 0;
+      const isAtRisk        = atRiskOn.length > 0;
+      // Days from original join to this activation (0 for most members) — shifts "days to first course" for win-backs
+      const origStart       = new Date(r['Membership Start Date']);
+      const startOffset     = isNaN(origStart) || isNaN(startDt) ? 0 : Math.round((startDt - origStart) / 86400000);
       const memberAtRiskFor = r['Member At Risk For'] || '';
       const savedOn         = r['Saved On'] || '';
       const isSaved         = savedOn.length > 0;
@@ -790,12 +806,13 @@ function processRows(csvRows) {
         linkedinUrl:  (() => { const raw = r['LinkedIn URL'] || r['Linkedin URL'] || r['linkedin url'] || ''; const titleMatch = raw.match(/title=["']?([^"'\s>]+)/); const u = (titleMatch ? titleMatch[1] : raw.replace(/<[^>]+>/g,'').trim()).split(/\s/)[0]; return u && !u.startsWith('http') ? 'https://' + u : u; })(),
         hubspotUrl:   (() => { const raw = r['View in HubSpot'] || r['View In HubSpot'] || r['View in Hubspot'] || r['HubSpot URL'] || r['Hubspot URL'] || r['hubspot url'] || r['View In Hubspot'] || ''; const hrefMatch = raw.match(/href=["']?([^"'\s>]+)/); return hrefMatch ? hrefMatch[1] : raw; })(),
         startDate,
+        origStartDate: r['Membership Start Date'] || '',
         chapter:      r['Location (Chapter)'] || '',
         billing:      r['Current Term Period'] || '',
         subType:      r['Subscription Type'] || '',
         isChurned, isAtRisk, isSaved, daysIn,
-        atRiskDate:      r['Member Became At Risk On'] || '',
-        churnedDate:     r['Churned On'] || '',
+        atRiskDate:      atRiskOn,
+        churnedDate:     churnedOn,
         memberAtRiskFor, savedOn,
         slackMessages:        parseNum(r['Slack Messages (All Time)']),
         totalReferrals:       parseNum(r['Total Referrals']),
@@ -807,7 +824,7 @@ function processRows(csvRows) {
         digitalOnly:          cellTrue(r, 'Digital Only Membership'),
         firstDinnerDate:      cellNotBlank(r, 'Date of First Dinner') ? r['Date of First Dinner'] : '',
         initiationDate:       cellNotBlank(r, 'Initiation Meeting Date') ? r['Initiation Meeting Date'] : '',
-        learnDays:            cellNotBlank(r, 'No. of Days to First Learn Enrollment') ? parseNum(r['No. of Days to First Learn Enrollment']) : null,
+        learnDays:            cellNotBlank(r, 'No. of Days to First Learn Enrollment') ? parseNum(r['No. of Days to First Learn Enrollment']) - startOffset : null,
         ...ms
       };
       obj.tier = getTier(obj, ms, daysIn);
@@ -825,11 +842,11 @@ function processRenewalRows(csvRows) {
     .filter(r => (r['Subscription Type'] || '').trim().toLowerCase().includes('executive'))
     .filter(r => !r['Premium Type'] || r['Premium Type'].trim() === '')
     .map(r => {
-      const churnedOnStr = (r['Churned On'] || '').trim();
-      const memStartStr  = (r['Membership Start Date'] || '').trim();
+      const memStartStr  = activeStart(r);
       const billing      = (r['Current Term Period'] || '').trim();
-      const isChurned    = churnedOnStr.length > 0;
       const memStart     = parseDate(memStartStr);
+      const churnedOnStr = sinceStart((r['Churned On'] || '').trim(), memStart || new Date(NaN));
+      const isChurned    = churnedOnStr.length > 0;
       // Compute the renewal event date for display (churn date or last billing anniversary)
       let eventDateStr;
       if (isChurned) {
@@ -841,7 +858,8 @@ function processRenewalRows(csvRows) {
 
       const ms      = getMilestones(r);
       const daysIn  = memStart ? Math.floor((today - memStart) / 86400000) : 0;
-      const isAtRisk = cellNotBlank(r, 'Member Became At Risk On');
+      const atRiskOn = cellNotBlank(r, 'Member Became At Risk On') ? sinceStart(r['Member Became At Risk On'], memStart || new Date(NaN)) : '';
+      const isAtRisk = atRiskOn.length > 0;
       const savedOn  = (r['Saved On'] || '').trim();
       const isSaved  = savedOn.length > 0;
 
@@ -855,7 +873,7 @@ function processRenewalRows(csvRows) {
         chapter:          r['Location (Chapter)'] || '',
         billing,
         isChurned, isAtRisk, isSaved, daysIn,
-        atRiskDate:       r['Member Became At Risk On'] || '',
+        atRiskDate:       atRiskOn,
         churnedDate:      churnedOnStr,
         savedOn,
         totalReferrals:   parseNum(r['Total Referrals']),
@@ -1524,7 +1542,7 @@ function engDaysBetween(a, b) {
 function engCell(list, p, win) {
   if (win && !p.days) return null;
   const el = win ? list.filter(r => r.daysIn >= win) : list;
-  const yes = el.filter(r => win ? (() => { const d = p.days(r); return d !== null && d <= win; })() : p.did(r));
+  const yes = el.filter(r => win ? (() => { const d = p.days(r); return d !== null && d >= -7 && d <= win; })() : p.did(r));
   return { el, yes, pct: el.length ? Math.round(yes.length / el.length * 100) : null };
 }
 
@@ -1542,7 +1560,7 @@ function renderEngagement() {
   const median = a => { if (!a.length) return null; const v = [...a].sort((x, y) => x - y), m = Math.floor(v.length / 2); return v.length % 2 ? v[m] : Math.round((v[m - 1] + v[m]) / 2); };
   const elig = win ? list.filter(r => r.daysIn >= win) : list;
   const dated = ENG_PRODUCTS.filter(p => p.days);
-  const didIn = (r, p) => { const d = p.days(r); return d !== null && (!win || d <= win); };
+  const didIn = (r, p) => { const d = p.days(r); return d !== null && d >= -7 && (!win || d <= win); };
   const kpis = dated.map(p => {
     const hits = elig.filter(r => didIn(r, p)).map(r => ({ r, d: Math.max(0, p.days(r)) }));
     const med = median(hits.map(x => x.d));
