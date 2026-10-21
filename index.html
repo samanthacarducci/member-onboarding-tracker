@@ -285,7 +285,7 @@ canvas{max-width:100%;}
   <!-- OVERVIEW -->
   <div id="tab-overview" class="main">
     <div class="note">
-      ℹ️ <span><strong>Scoring:</strong> Sales Touch = tracked only · Onboarding Call (0.5 pts) · Initiation Call (0.5 pts) · Chapter Dinner (4 pts) · Course (2 pts) · Slack 2+ msgs (1 pt) · Connections (2 pts). <strong>New Member</strong> = score 0–2, under 60 days · <strong>Failure to Launch</strong> = score 0–2, 60+ days · <strong>Getting Started</strong> = 3–5 pts · <strong>Engaged</strong> = 6–7 pts · <strong>Fully Activated</strong> = 8+ pts. <strong>At Risk</strong> = cancel requested. <strong>Churned</strong> = cancel date has passed.</span>
+      ℹ️ <span><strong>Scoring:</strong> Sales Touch = tracked only · Onboarding <em>or</em> Initiation Call (1 pt, either counts) · Chapter Dinner (4 pts) · Course (2 pts) · Slack 2+ msgs (1 pt) · Connections (2 pts). <strong>New Member</strong> = score 0–2, under 60 days · <strong>Failure to Launch</strong> = score 0–2, 60+ days · <strong>Getting Started</strong> = 3–5 pts · <strong>Engaged</strong> = 6–7 pts · <strong>Fully Activated</strong> = 8+ pts. <strong>At Risk</strong> = cancel requested. <strong>Churned</strong> = cancel date has passed.</span>
     </div>
     <div class="kpi-row" id="kpi-row"></div>
     <div class="sec">Activation Tiers &amp; Milestones</div>
@@ -349,7 +349,7 @@ canvas{max-width:100%;}
           <option value="">All Milestones</option>
           <option value="hasSalesTouched">✓ Has Sales Touch (pre-sales)</option>
           <option value="no-hasSalesTouched">✗ Missing Sales Touch</option>
-          <option value="hasOnboardingCall">✓ Has Onboarding Call (0.5 pts)</option>
+          <option value="hasOnboardingCall">✓ Has Onboarding Call (completed)</option>
           <option value="no-hasOnboardingCall">✗ Missing Onboarding Call</option>
           <option value="hasInitiation">✓ Has Initiation Call</option>
           <option value="no-hasInitiation">✗ Missing Initiation Call</option>
@@ -430,8 +430,7 @@ canvas{max-width:100%;}
           <thead><tr><th>Activity</th><th>Signal</th><th style="text-align:right;">Points</th></tr></thead>
           <tbody>
             <tr><td style="font-weight:500;">Sales Touch <span style="font-size:10px;color:var(--text-muted);font-weight:400;">(pre-sales)</span></td><td style="font-size:11px;color:var(--text-muted);">Touched by Sales = True — tracked but does not score</td><td style="text-align:right;font-weight:600;color:var(--text-muted);">tracked</td></tr>
-            <tr><td style="font-weight:500;">Onboarding Call</td><td style="font-size:11px;color:var(--text-muted);">Onboarding Call field is filled</td><td style="text-align:right;font-weight:700;color:#998BDF;">0.5</td></tr>
-            <tr><td style="font-weight:500;">New Member Roundtable</td><td style="font-size:11px;color:var(--text-muted);">Initiation Meeting Date filled</td><td style="text-align:right;font-weight:700;color:#C57FD9;">0.5</td></tr>
+            <tr><td style="font-weight:500;">Onboarding <em>or</em> Initiation Call</td><td style="font-size:11px;color:var(--text-muted);">Onboarding Call marked Completed, or Initiation Meeting Date filled — either counts, doing both still scores 1</td><td style="text-align:right;font-weight:700;color:#998BDF;">1</td></tr>
             <tr><td style="font-weight:500;">Chapter Dinner</td><td style="font-size:11px;color:var(--text-muted);">First Dinner date, or Dinners Registered/Attended &gt; 0</td><td style="text-align:right;font-weight:700;color:#FF768F;">4</td></tr>
             <tr><td style="font-weight:500;">Course Enrollment</td><td style="font-size:11px;color:var(--text-muted);">Days to First Learn Enrollment not blank, or Courses Enrolled &gt; 0</td><td style="text-align:right;font-weight:700;color:#6EE7B7;">2</td></tr>
             <tr><td style="font-weight:500;">Slack (2+ messages)</td><td style="font-size:11px;color:var(--text-muted);">Slack Messages (Last 12 Months or All Time) ≥ 2</td><td style="text-align:right;font-weight:700;color:#FCD34D;">1</td></tr>
@@ -486,7 +485,7 @@ canvas{max-width:100%;}
           <option value="">All activities</option>
           <option value="hasSalesTouched">✓ Has Sales Touch (pre-sales)</option>
           <option value="no-hasSalesTouched">✗ Missing Sales Touch</option>
-          <option value="hasOnboardingCall">✓ Has Onboarding Call (0.5 pts)</option>
+          <option value="hasOnboardingCall">✓ Has Onboarding Call (completed)</option>
           <option value="no-hasOnboardingCall">✗ Missing Onboarding Call</option>
           <option value="hasInitiation">✓ Has Initiation Call</option>
           <option value="no-hasInitiation">✗ Missing Initiation Call</option>
@@ -696,10 +695,9 @@ function getMilestones(r) {
   const hasCourse         = cellNotBlank(r, 'No. of Days to First Learn Enrollment') || parseNum(r['No. of Live Courses Enrolled In']) > 0;
   const hasConnections    = cellNotBlank(r, 'Orbiit - Last Match At');
 
-  // Weighted score: only Onboarding Call scores (not Sales Touch), Initiation 0.5, Dinner 4, Course 2, Slack 1, Connections 2
+  // Weighted score: Onboarding OR Initiation call 1 (either counts once; Sales Touch doesn't score), Dinner 4, Course 2, Slack 1, Connections 2
   let score = 0;
-  if (hasOnboardingCall) score += 0.5;
-  if (hasInitiation)     score += 0.5;
+  if (hasOnboardingCall || hasInitiation) score += 1;
   if (hasDinner)         score += 4;
   if (hasCourse)         score += 2;
   if (hasSlack)          score += 1;
@@ -1197,7 +1195,7 @@ function renderTimeline() {
 }
 
 // ── MS KEY
-const MS_PTS = ['tracked','0.5 pts','0.5 pts','4 pts','2 pts','1 pt','2 pts'];
+const MS_PTS = ['tracked','1 pt (either call)','1 pt (either call)','4 pts','2 pts','1 pt','2 pts'];
 function renderMsKey() {
   const el = document.getElementById('ms-key');
   el.innerHTML = '<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-right:4px;">Key:</span>'
