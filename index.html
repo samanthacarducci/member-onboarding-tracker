@@ -228,9 +228,9 @@ canvas{max-width:100%;}
       </div>
     </div>
     <div class="hdr-r">
-      <span class="chip chip-current" id="chip-total">Total: —%</span>
-      <span class="chip chip-amber" id="chip-monthly">Monthly: —%</span>
-      <span class="chip chip-green" id="chip-target">Target: 90%</span>
+      <span class="chip chip-current" id="chip-total" style="display:none;">Total: —%</span>
+      <span class="chip chip-green" id="chip-target">Goal: 90%</span>
+      <span class="chip chip-amber" id="chip-monthly">Monthly Exec Retention: —%</span>
       <span class="chip chip-sync" onclick="refreshData()"><span class="sync-dot"></span>Live Data</span>
       <span class="as-of" id="as-of-date"></span>
     </div>
@@ -829,20 +829,12 @@ function updateRetentionChips(isRenewalTab) {
     total.textContent   = `Rolling 90: ${pct}%`;
     monthly.style.display = 'none';
     target.style.display  = 'none';
+    total.style.display   = '';
   } else {
+    // Main pages show only Goal + Monthly Exec Retention; renderKPIs keeps the monthly value current
+    total.style.display   = 'none';
     monthly.style.display = '';
     target.style.display  = '';
-    // Restore labels (renderKPIs keeps the values up to date)
-    const t = total.textContent;
-    if (!t.startsWith('Total:')) {
-      // Was showing rolling 90 — restore from RAW
-      const tot   = RAW.length;
-      const chAll = RAW.filter(r=>r.tier==='Churned').length;
-      const monAll  = RAW.filter(r=>r.billing==='Monthly').length;
-      const monCh   = RAW.filter(r=>r.tier==='Churned'&&r.billing==='Monthly').length;
-      total.textContent   = `Total: ${tot?Math.round((tot-chAll)/tot*100):0}%`;
-      monthly.textContent = `Monthly: ${monAll?Math.round((monAll-monCh)/monAll*100):0}%`;
-    }
   }
 }
 
@@ -916,7 +908,7 @@ function renderKPIs() {
   const monthlyChurn  = RAW.filter(r=>r.tier==='Churned'&&r.billing==='Monthly').length;
   const monthlyRetPct = monthlyAll > 0 ? Math.round(((monthlyAll - monthlyChurn) / monthlyAll) * 100) : 0;
   document.getElementById('chip-total').textContent   = `Total: ${totalRetPct}%`;
-  document.getElementById('chip-monthly').textContent = `Monthly: ${monthlyRetPct}%`;
+  document.getElementById('chip-monthly').textContent = `Monthly Exec Retention: ${monthlyRetPct}%`;
 
   const el = document.getElementById('kpi-row');
   const saved       = RAW.filter(r=>r.isSaved).length;
