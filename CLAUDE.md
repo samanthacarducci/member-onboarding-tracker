@@ -1,7 +1,7 @@
 # Pavilion 90-Day Onboarding Tracker — Project Context
 
 ## What This Is
-A live, interactive HTML dashboard tracking Pavilion's new 90-day Executive Member onboarding program (launched February 15, 2026). The goal is to improve Y1 retention from a **49% baseline to a 60% target** by ensuring new members "activate" within their first 90 days.
+A live, interactive HTML dashboard tracking Pavilion's new 90-day Executive Member onboarding program (launched February 15, 2026). The goal is to improve Y1 retention from a **49% baseline to a 90% target** by ensuring new members "activate" within their first 90 days.
 
 The dashboard is a single self-contained `index.html` file hosted on Netlify that fetches live data from a published Google Sheet CSV on every page load.
 
@@ -149,7 +149,7 @@ https://docs.google.com/spreadsheets/d/1PTuOEnbQEvPwyButEaMshg7KX-2uOl1wfSIsJyIg
 - **Program launched:** February 15, 2026
 - **Audience:** Executive Members only
 - **Highest churn risk group:** Monthly billing members
-- **Retention baseline:** 49% Y1 | **Target:** 60% Y1
+- **Retention baseline:** 49% Y1 | **Target:** 90% Y1
 - **Program owners:** Concierge calls by Bailey; Initiation calls by Rich or Sam
 
 ## Tech Stack
