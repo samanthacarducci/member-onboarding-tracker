@@ -431,7 +431,7 @@ canvas{max-width:100%;}
           <tbody>
             <tr><td style="font-weight:500;">Sales Touch <span style="font-size:10px;color:var(--text-muted);font-weight:400;">(pre-sales)</span></td><td style="font-size:11px;color:var(--text-muted);">Touched by Sales = True — tracked but does not score</td><td style="text-align:right;font-weight:600;color:var(--text-muted);">tracked</td></tr>
             <tr><td style="font-weight:500;">Onboarding <em>or</em> Initiation Call</td><td style="font-size:11px;color:var(--text-muted);">Onboarding Call marked Completed, or Initiation Meeting Date filled — either counts, doing both still scores 1</td><td style="text-align:right;font-weight:700;color:#998BDF;">1</td></tr>
-            <tr><td style="font-weight:500;">Chapter Dinner</td><td style="font-size:11px;color:var(--text-muted);">First Dinner date, or Dinners Registered/Attended &gt; 0</td><td style="text-align:right;font-weight:700;color:#FF768F;">4</td></tr>
+            <tr><td style="font-weight:500;">Chapter Dinner</td><td style="font-size:11px;color:var(--text-muted);">Attended a dinner: First Dinner date, or Dinners Attended &gt; 0 (registering alone doesn't count)</td><td style="text-align:right;font-weight:700;color:#FF768F;">4</td></tr>
             <tr><td style="font-weight:500;">Course Enrollment</td><td style="font-size:11px;color:var(--text-muted);">Days to First Learn Enrollment not blank, or Courses Enrolled &gt; 0</td><td style="text-align:right;font-weight:700;color:#6EE7B7;">2</td></tr>
             <tr><td style="font-weight:500;">Slack (2+ messages)</td><td style="font-size:11px;color:var(--text-muted);">Slack Messages (Last 12 Months or All Time) ≥ 2</td><td style="text-align:right;font-weight:700;color:#FCD34D;">1</td></tr>
             <tr><td style="font-weight:500;">Pavilion Connection Opt-In</td><td style="font-size:11px;color:var(--text-muted);">Orbiit – Last Match At is filled</td><td style="text-align:right;font-weight:700;color:#C57FD9;">2</td></tr>
@@ -520,7 +520,7 @@ canvas{max-width:100%;}
   <!-- PRODUCT ENGAGEMENT TAB -->
   <div id="tab-engagement" class="main" style="display:none;">
     <div class="note">
-      ℹ️ <span><strong>Which products each join-month cohort has used.</strong> Each cell is the % of that cohort who have done it. <strong>Total</strong> counts everything so far. Newer cohorts have had less time, so use <strong>30 / 60 / 90 days</strong> to compare cohorts fairly: each member only counts once they've been a member that long. Slack and Onboarding Call have no dates, so they only appear under Total. Onboarding Call counts only calls marked Completed. Dinners count by first-dinner date, so members with a dinner registration but no date are left out of the 30/60/90 views. Click a cell to see who.</span>
+      ℹ️ <span><strong>Which products each join-month cohort has used.</strong> Each cell is the % of that cohort who have done it. <strong>Total</strong> counts everything so far. Newer cohorts have had less time, so use <strong>30 / 60 / 90 days</strong> to compare cohorts fairly: each member only counts once they've been a member that long. Slack and Onboarding Call have no dates, so they only appear under Total. Onboarding Call counts only calls marked Completed. Chapter Dinner counts dinners attended, not registrations. Click a cell to see who.</span>
     </div>
     <div class="coh-controls">
       <div class="seg-grp" id="eng-window">
@@ -688,7 +688,8 @@ function getMilestones(r) {
   const hasOnboardingCall = (r['Onboarding Call'] || '').trim().toLowerCase() === 'completed';
   const hasConcierge      = hasSalesTouched || hasOnboardingCall;
   const hasInitiation     = cellNotBlank(r, 'Initiation Meeting Date');
-  const hasDinner         = cellNotBlank(r, 'Date of First Dinner') || parseNum(r['No. of Dinners Registered']) > 0 || parseNum(r['No. of Dinners Attended']) > 0;
+  // Attended only — a registration without attending doesn't count
+  const hasDinner         = cellNotBlank(r, 'Date of First Dinner') || parseNum(r['No. of Dinners Attended']) > 0;
   const slack12mo         = parseNum(r['Slack Messages (Last 12 Months)']);
   const slackAllTime      = parseNum(r['Slack Messages (All Time)']);
   const hasSlack          = slack12mo >= 2 || (slack12mo === 0 && slackAllTime >= 2);
