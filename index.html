@@ -183,6 +183,34 @@ body{font-family:'Poppins',sans-serif;background:var(--blue-700);color:var(--tex
 .tbl-footer{padding:10px 0;font-size:11px;color:var(--text-muted);text-align:center;}
 
 
+/* MONTHLY COHORTS */
+.coh-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px;}
+.coh-toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);cursor:pointer;user-select:none;}
+.coh-toggle input{accent-color:var(--pink-500);width:15px;height:15px;cursor:pointer;}
+.coh-wrap{overflow-x:auto;}
+.coh-tbl{border-collapse:separate;border-spacing:2px;font-size:12px;min-width:860px;width:100%;}
+.coh-tbl th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);padding:6px 4px;text-align:center;white-space:nowrap;}
+.coh-tbl th.coh-left,.coh-tbl td.coh-left{text-align:left;padding-left:2px;}
+.coh-tbl td{padding:0;height:38px;text-align:center;}
+.coh-name{font-weight:700;color:var(--text);white-space:nowrap;padding-right:10px !important;}
+.coh-n{color:var(--text-muted);font-size:11px;padding:0 8px !important;}
+.coh-cell{border-radius:4px;font-weight:700;font-size:12px;cursor:pointer;transition:outline-color .15s;outline:2px solid transparent;outline-offset:-2px;}
+.coh-cell:hover{outline-color:#fff;}
+.coh-cell.partial{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.14) 0 2px,transparent 2px 7px);}
+.coh-empty{background:rgba(255,255,255,.02);border-radius:4px;}
+.coh-now{min-width:190px;padding:0 0 0 12px !important;}
+.coh-bar{display:flex;gap:2px;height:10px;border-radius:4px;overflow:hidden;margin-bottom:4px;}
+.coh-bar div{height:100%;}
+.coh-now-txt{display:flex;gap:10px;font-size:11px;color:var(--text-muted);white-space:nowrap;}
+.coh-now-txt span{cursor:pointer;}
+.coh-now-txt span:hover{color:var(--text);text-decoration:underline;}
+.coh-ret{font-weight:700;color:var(--text);}
+.coh-scale{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:11px;color:var(--text-muted);flex-wrap:wrap;}
+.coh-ramp{position:relative;width:220px;height:10px;border-radius:4px;}
+.coh-goal{position:absolute;top:-4px;bottom:-4px;width:2px;background:#fff;border-radius:1px;}
+.coh-tip{position:fixed;pointer-events:none;z-index:60;background:#0F0640;border:1px solid var(--card-border);border-radius:8px;padding:8px 11px;font-size:11.5px;color:var(--text);line-height:1.5;box-shadow:0 6px 24px rgba(0,0,0,.4);display:none;max-width:260px;}
+.coh-tip b{color:#fff;}
+
 /* AI CHAT */
 .chat-msgs{min-height:200px;max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;margin-bottom:16px;}
 .msg{max-width:88%;padding:12px 15px;border-radius:12px;font-size:13px;line-height:1.55;}
@@ -238,6 +266,7 @@ canvas{max-width:100%;}
 
   <div class="tabs">
     <div class="tab active" data-tab="overview">Overview</div>
+    <div class="tab" data-tab="cohorts">Monthly Cohorts</div>
     <div class="tab" data-tab="members">Member Detail</div>
     <div class="tab" data-tab="risk">At-Risk &amp; Churned</div>
     <div class="tab" data-tab="key">Scoring Key</div>
@@ -430,6 +459,38 @@ canvas{max-width:100%;}
     </div>
   </div>
 
+  <!-- MONTHLY COHORTS TAB -->
+  <div id="tab-cohorts" class="main" style="display:none;">
+    <div class="note">
+      ℹ️ <span><strong>Monthly-billed Executive members only, grouped by the month they joined.</strong> Each cell is the % of that cohort still a member that many months after their own start date. Striped cells are still in progress: not everyone in the cohort has reached that month yet, so the % covers only those who have. Click any cell or count to see the members.</span>
+    </div>
+    <div class="coh-controls">
+      <select class="sel" id="coh-tier" onchange="renderCohorts()">
+        <option value="">All activation tiers</option>
+        <option>Failure to Launch</option>
+        <option>New Member</option>
+        <option>Getting Started</option>
+        <option>Engaged</option>
+        <option>Fully Activated</option>
+      </select>
+      <label class="coh-toggle"><input type="checkbox" id="coh-risk-lost" onchange="renderCohorts()"> Count at-risk members as lost</label>
+    </div>
+    <div class="kpi-row" id="coh-kpi-row" style="grid-template-columns:repeat(5,1fr);"></div>
+    <div class="sec">Retention by Join Month</div>
+    <div class="panel" style="margin-bottom:24px;">
+      <div class="panel-title">Monthly Cohort Retention <span class="panel-hint" id="coh-hint"></span></div>
+      <div class="coh-wrap"><table class="coh-tbl" id="coh-tbl"></table></div>
+      <div class="coh-scale" id="coh-scale"></div>
+    </div>
+    <div class="sec">Retention Curve by Activation Tier</div>
+    <div class="panel">
+      <div class="panel-title">% Still a Member, by Months Since Joining <span class="panel-hint">all monthly cohorts combined · tier = current activation score</span></div>
+      <div style="position:relative;height:300px;"><canvas id="coh-curve"></canvas></div>
+      <div class="chart-legend" id="coh-curve-legend"></div>
+    </div>
+    <div class="coh-tip" id="coh-tip"></div>
+  </div>
+
   <!-- RENEWAL TRACKING TAB -->
   <div id="tab-retention" class="main" style="display:none;">
     <div class="note">
@@ -508,7 +569,7 @@ const TIER_BG = {
 const MS_LABELS = ['Sales Touch','Onboarding Call','Initiation Call','Chapter Dinner','Course Enrolled','Slack (2+ msgs)','Connections'];
 const MS_COLORS = ['#B197FC','#998BDF','#C57FD9','#FF768F','#6EE7B7','#FCD34D','#DEB0EB'];
 
-let RAW = [], RENEWAL_RAW = [], timelineChart = null, sortCol = 'startDate', sortAsc = false, apiKey = localStorage.getItem('pavilion_api_key')||'';
+let RAW = [], RENEWAL_RAW = [], timelineChart = null, cohortCurveChart = null, sortCol = 'startDate', sortAsc = false, apiKey = localStorage.getItem('pavilion_api_key')||'';
 let drilldownMembers = [], drilldownTitle = '', drilldownSortCol = 'startDate', drilldownSortAsc = false;
 
 // ── CSV PARSER
@@ -850,6 +911,7 @@ function renderAll() {
   renderMsKey();
   if (document.getElementById('tab-members').style.display !== 'none') renderTable();
   if (document.getElementById('tab-risk').style.display !== 'none') renderRisk();
+  if (document.getElementById('tab-cohorts').style.display !== 'none') renderCohorts();
 }
 
 // TABS
@@ -857,10 +919,11 @@ document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
-    ['overview','members','risk','key','retention'].forEach(id => document.getElementById('tab-'+id).style.display='none');
+    ['overview','cohorts','members','risk','key','retention'].forEach(id => document.getElementById('tab-'+id).style.display='none');
     document.getElementById('tab-'+t.dataset.tab).style.display = 'block';
     if (t.dataset.tab === 'members') renderTable();
     if (t.dataset.tab === 'risk') renderRisk();
+    if (t.dataset.tab === 'cohorts') renderCohorts();
     if (t.dataset.tab === 'retention') { renderRetention(); updateRetentionChips(true); }
     else updateRetentionChips(false);
   });
@@ -1171,6 +1234,204 @@ function renderRisk(){
     <td style="font-weight:700;color:var(--pink-500);">${r.score}</td>
     <td><div class="ms-dots">${msDotsHtml(r)}</div></td>
   </tr>`).join('');
+}
+
+// ── MONTHLY COHORTS TAB
+const COH_TIERS = ['Failure to Launch','New Member','Getting Started','Engaged','Fully Activated'];
+const COH_LO = [43,27,120], COH_HI = [206,198,244];   // sequential ramp: dim blue → lavender
+const COH_MIN = 30, COH_GOAL = 90;
+let cohCells = {};
+
+function cohAddMonths(d, n) {
+  const r = new Date(d.getFullYear(), d.getMonth() + n, 1);
+  const last = new Date(r.getFullYear(), r.getMonth() + 1, 0).getDate();
+  r.setDate(Math.min(d.getDate(), last));
+  return r;
+}
+function cohColor(pct) {
+  const t = Math.max(0, Math.min(1, (pct - COH_MIN) / (100 - COH_MIN)));
+  const c = COH_LO.map((lo, i) => Math.round(lo + (COH_HI[i] - lo) * t));
+  return { bg: `rgb(${c.join(',')})`, fg: t > 0.55 ? '#180A5C' : '#F4E0FA' };
+}
+// Churned on or before a given date (saved members never count as churned — matches getTier)
+function cohChurnedBy(r, date) {
+  if (r.isSaved || !r.isChurned) return false;
+  const c = new Date(r.churnedDate);
+  return !isNaN(c) && c <= date && c <= new Date();
+}
+
+function renderCohorts() {
+  const today    = new Date();
+  const tierF    = document.getElementById('coh-tier').value;
+  const riskLost = document.getElementById('coh-risk-lost').checked;
+  const members  = RAW.filter(r => r.billing === 'Monthly' && !isNaN(new Date(r.startDate)))
+    .map(r => ({ r, start: new Date(r.startDate), scoreTier: scoreTierLabel(r.score, r.daysIn) }))
+    .filter(m => !tierF || m.scoreTier === tierF);
+  const isLostNow = m => m.r.tier === 'Churned' || (riskLost && m.r.tier === 'At Risk');
+
+  // Group by join month
+  const groups = {};
+  members.forEach(m => {
+    const key = m.start.getFullYear() + '-' + String(m.start.getMonth() + 1).padStart(2, '0');
+    (groups[key] = groups[key] || []).push(m);
+  });
+  const keys = Object.keys(groups).sort();
+  const monthsSince = k => { const [y, mo] = k.split('-').map(Number); return (today.getFullYear() - y) * 12 + today.getMonth() - (mo - 1); };
+  const maxN = keys.length ? Math.max(1, monthsSince(keys[0])) : 1;
+  const label = k => { const [y, mo] = k.split('-').map(Number); return new Date(y, mo - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }); };
+
+  // KPIs
+  const n = members.length;
+  const lost = members.filter(isLostNow).length;
+  const atRisk = members.filter(m => m.r.tier === 'At Risk');
+  const churned = members.filter(m => m.r.tier === 'Churned');
+  const pooled = N => {
+    const el = members.filter(m => cohAddMonths(m.start, N) <= today);
+    const ret = el.filter(m => !cohChurnedBy(m.r, cohAddMonths(m.start, N)));
+    return el.length ? Math.round(ret.length / el.length * 100) : null;
+  };
+  const m3 = pooled(3), m6 = pooled(6);
+  const retNow = n ? Math.round((n - lost) / n * 100) : 0;
+  const kpis = [
+    { label: 'Monthly Exec Members', val: n, sub: tierF ? tierF : 'Joined since Feb 15', cls: 'c-white', fn: () => members.map(m => m.r) },
+    { label: riskLost ? 'Retained (excl. At Risk)' : 'Retained Today', val: retNow + '%', sub: `${n - lost} of ${n} · goal ${COH_GOAL}%`, cls: retNow >= COH_GOAL ? 'c-green' : 'c-amber', fn: () => members.filter(m => !isLostNow(m)).map(m => m.r) },
+    { label: '3-Month Retention', val: m3 === null ? '—' : m3 + '%', sub: 'Members who reached month 3', cls: 'c-purple', fn: null },
+    { label: '6-Month Retention', val: m6 === null ? '—' : m6 + '%', sub: 'Members who reached month 6', cls: 'c-purple', fn: null },
+    { label: 'At Risk Now', val: atRisk.length, sub: 'Cancel requested', cls: 'c-pink', fn: () => atRisk.map(m => m.r) },
+  ];
+  const kEl = document.getElementById('coh-kpi-row'); kEl.innerHTML = '';
+  kpis.forEach(k => {
+    const div = document.createElement('div');
+    div.className = 'kpi';
+    if (!k.fn) div.style.cursor = 'default';
+    div.innerHTML = `<div class="kpi-label">${k.label}</div><div class="kpi-val ${k.cls}">${k.val}</div><div class="kpi-sub">${k.sub}</div>`;
+    if (k.fn) div.addEventListener('click', () => showDrilldown(k.label, k.fn()));
+    kEl.appendChild(div);
+  });
+  document.getElementById('coh-hint').textContent = `${n} members · ${churned.length} churned · ${atRisk.length} at risk`;
+
+  // Heatmap
+  cohCells = {};
+  let html = '<thead><tr><th class="coh-left">Joined</th><th>Members</th>';
+  for (let N = 1; N <= maxN; N++) html += `<th>Mo ${N}</th>`;
+  html += '<th class="coh-left coh-now">Today: Active · At risk · Churned</th></tr></thead><tbody>';
+  keys.forEach(k => {
+    const g = groups[k];
+    html += `<tr><td class="coh-name coh-left">${label(k)}</td><td class="coh-n">${g.length}</td>`;
+    for (let N = 1; N <= maxN; N++) {
+      const el = g.filter(m => cohAddMonths(m.start, N) <= today);
+      if (!el.length) { html += '<td class="coh-empty"></td>'; continue; }
+      const ret = el.filter(m => !cohChurnedBy(m.r, cohAddMonths(m.start, N)));
+      const pct = Math.round(ret.length / el.length * 100);
+      const partial = el.length < g.length;
+      const id = k + '|' + N;
+      cohCells[id] = { k, N, el, ret, pct, partial, total: g.length };
+      const c = cohColor(pct);
+      if (partial && el.length < 5) {   // too few members have reached this month to show a reliable %
+        html += `<td class="coh-cell partial" data-id="${id}" style="background-color:rgba(255,255,255,.04);color:var(--text-muted);font-weight:500;font-size:10.5px;">${el.length} so far</td>`;
+        continue;
+      }
+      html += `<td class="coh-cell${partial ? ' partial' : ''}" data-id="${id}" style="background-color:${c.bg};color:${c.fg};">${pct}%</td>`;
+    }
+    const act = g.filter(m => m.r.tier !== 'Churned' && m.r.tier !== 'At Risk').length;
+    const ar  = g.filter(m => m.r.tier === 'At Risk').length;
+    const ch  = g.filter(m => m.r.tier === 'Churned').length;
+    const nowPct = Math.round((g.length - g.filter(isLostNow).length) / g.length * 100);
+    const w = x => (x / g.length * 100) + '%';
+    html += `<td class="coh-now coh-left">
+      <div class="coh-bar">${act ? `<div style="width:${w(act)};background:#6EE7B7;"></div>` : ''}${ar ? `<div style="width:${w(ar)};background:#FF768F;"></div>` : ''}${ch ? `<div style="width:${w(ch)};background:rgba(206,198,244,.22);"></div>` : ''}</div>
+      <div class="coh-now-txt"><span class="coh-ret" data-now="${k}|active">${nowPct}% retained</span><span data-now="${k}|active">● ${act}</span><span data-now="${k}|risk" style="color:#FF768F;">⚠ ${ar}</span><span data-now="${k}|churned">✕ ${ch}</span></div>
+    </td></tr>`;
+  });
+  if (!keys.length) html += `<tr><td colspan="${maxN + 3}" style="padding:24px;color:var(--text-muted);">No monthly members match this filter.</td></tr>`;
+  html += '</tbody>';
+  const tbl = document.getElementById('coh-tbl');
+  tbl.innerHTML = html;
+
+  // Cell hover + click
+  const tip = document.getElementById('coh-tip');
+  tbl.querySelectorAll('.coh-cell').forEach(td => {
+    const c = cohCells[td.dataset.id];
+    td.addEventListener('mousemove', e => {
+      tip.innerHTML = `<b>${label(c.k)} cohort · Month ${c.N}</b><br>${c.ret.length} of ${c.el.length} still members (${c.pct}%)` +
+        (c.partial ? `<br><span style="color:var(--text-muted)">In progress: ${c.el.length} of ${c.total} have reached month ${c.N}</span>` : '') +
+        `<br><span style="color:var(--text-muted)">Click to see who churned</span>`;
+      tip.style.display = 'block';
+      tip.style.left = Math.min(e.clientX + 14, window.innerWidth - 270) + 'px';
+      tip.style.top = (e.clientY + 14) + 'px';
+    });
+    td.addEventListener('mouseleave', () => tip.style.display = 'none');
+    td.addEventListener('click', () => {
+      const gone = c.el.filter(m => !c.ret.includes(m)).map(m => m.r);
+      showDrilldown(`${label(c.k)} cohort — churned by month ${c.N}`, gone.length ? gone : c.el.map(m => m.r));
+    });
+  });
+  tbl.querySelectorAll('[data-now]').forEach(sp => sp.addEventListener('click', () => {
+    const [k, what] = sp.dataset.now.split('|');
+    const g = groups[k];
+    const pick = { active: m => m.r.tier !== 'Churned' && m.r.tier !== 'At Risk', risk: m => m.r.tier === 'At Risk', churned: m => m.r.tier === 'Churned' }[what];
+    const title = { active: 'Active', risk: 'At risk', churned: 'Churned' }[what];
+    showDrilldown(`${label(k)} cohort — ${title}`, g.filter(pick).map(m => m.r));
+  }));
+
+  // Scale legend
+  const goalLeft = (COH_GOAL - COH_MIN) / (100 - COH_MIN) * 100;
+  document.getElementById('coh-scale').innerHTML =
+    `<span>≤${COH_MIN}%</span><div class="coh-ramp" style="background:linear-gradient(90deg,rgb(${COH_LO}),rgb(${COH_HI}));"><div class="coh-goal" style="left:${goalLeft}%;" title="Goal ${COH_GOAL}%"></div></div><span>100%</span>
+     <span style="margin-left:6px;">▏white tick = ${COH_GOAL}% goal</span>
+     <span style="margin-left:10px;display:inline-flex;align-items:center;gap:6px;"><span style="display:inline-block;width:18px;height:12px;border-radius:3px;background-color:rgb(120,108,190);background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.3) 0 2px,transparent 2px 7px);"></span>in progress</span>
+     <span style="margin-left:10px;"><span style="color:#6EE7B7;">●</span> active · <span style="color:#FF768F;">⚠</span> at risk (cancel requested) · ✕ churned</span>`;
+
+  renderCohortCurve(today, maxN, tierF);
+}
+
+function renderCohortCurve(today, maxN, tierF) {
+  const all = RAW.filter(r => r.billing === 'Monthly' && !isNaN(new Date(r.startDate)))
+    .map(r => ({ r, start: new Date(r.startDate), scoreTier: scoreTierLabel(r.score, r.daysIn) }));
+  const labels = []; for (let N = 1; N <= maxN; N++) labels.push('Mo ' + N);
+  const curve = list => labels.map((_, i) => {
+    const N = i + 1;
+    const el = list.filter(m => cohAddMonths(m.start, N) <= today);
+    if (el.length < 5) return null;   // too few members to plot reliably
+    return { y: Math.round(el.filter(m => !cohChurnedBy(m.r, cohAddMonths(m.start, N))).length / el.length * 100), n: el.length };
+  });
+  const series = [{ name: 'All monthly', color: '#FFFFFF', list: all, dash: [6, 4] }]
+    .concat(COH_TIERS.map(t => ({ name: t, color: TIER_COLORS[t], list: all.filter(m => m.scoreTier === t) })));
+  const datasets = series.map(s => {
+    const pts = curve(s.list);
+    const dim = tierF && s.name !== tierF && s.name !== 'All monthly';
+    return {
+      label: s.name, data: pts.map(p => p ? p.y : null), _n: pts.map(p => p ? p.n : 0),
+      borderColor: dim ? s.color + '40' : s.color, backgroundColor: s.color,
+      borderWidth: tierF === s.name ? 3 : 2, borderDash: s.dash || [], pointRadius: 4, pointHoverRadius: 6,
+      pointBackgroundColor: dim ? s.color + '40' : s.color, pointBorderColor: '#180A5C', pointBorderWidth: 2,
+      spanGaps: false, tension: 0.25,
+    };
+  });
+  datasets.push({ label: `Goal ${COH_GOAL}%`, data: labels.map(() => COH_GOAL), borderColor: 'rgba(255,255,255,.35)', borderWidth: 1, borderDash: [2, 3], pointRadius: 0, pointHoverRadius: 0, _goal: true });
+  if (cohortCurveChart) cohortCurveChart.destroy();
+  cohortCurveChart = new Chart(document.getElementById('coh-curve'), {
+    type: 'line', data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          filter: i => !i.dataset._goal && i.parsed.y !== null,
+          callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}%  (${ctx.dataset._n[ctx.dataIndex]} members)` }
+        }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(206,198,244,.07)' }, ticks: { color: '#998BDF', font: { size: 11, family: 'Poppins' } } },
+        y: { min: 0, max: 100, grid: { color: 'rgba(206,198,244,.07)' }, ticks: { color: '#998BDF', font: { size: 11, family: 'Poppins' }, callback: v => v + '%', stepSize: 20 } }
+      }
+    }
+  });
+  document.getElementById('coh-curve-legend').innerHTML = series.map(s => {
+    const cnt = s.list.length;
+    return `<div class="cl-item"><div class="cl-swatch" style="background:${s.color};${s.dash ? 'opacity:.8;' : ''}"></div>${s.name} (${cnt})</div>`;
+  }).join('') + `<div class="cl-item" style="opacity:.7;">┄ Goal ${COH_GOAL}% · points hidden under 5 members</div>`;
 }
 
 // ── DRILLDOWN
