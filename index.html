@@ -521,7 +521,7 @@ canvas{max-width:100%;}
   <!-- PRODUCT ENGAGEMENT TAB -->
   <div id="tab-engagement" class="main" style="display:none;">
     <div class="note">
-      ℹ️ <span><strong>Which products each join-month cohort has used.</strong> Each cell is the % of that cohort who have done it. <strong>Total</strong> counts everything so far. Newer cohorts have had less time, so use <strong>30 / 60 / 90 days</strong> to compare cohorts fairly: each member only counts once they've been a member that long. Slack and Onboarding Call have no dates, so they only show under Total. Dinners count by first-dinner date, so members with a dinner registration but no date are left out of the 30/60/90 views. Click a cell to see who.</span>
+      ℹ️ <span><strong>Which products each join-month cohort has used.</strong> Each cell is the % of that cohort who have done it. <strong>Total</strong> counts everything so far. Newer cohorts have had less time, so use <strong>30 / 60 / 90 days</strong> to compare cohorts fairly: each member only counts once they've been a member that long. Slack and Onboarding Call have no dates, so they only appear under Total. Onboarding Call counts only calls marked Completed. Dinners count by first-dinner date, so members with a dinner registration but no date are left out of the 30/60/90 views. Click a cell to see who.</span>
     </div>
     <div class="coh-controls">
       <div class="seg-grp" id="eng-window">
@@ -685,7 +685,8 @@ function parseNum(v) {
 // ── MILESTONE LOGIC
 function getMilestones(r) {
   const hasSalesTouched   = cellTrue(r, 'Touched by Sales - Meeting');
-  const hasOnboardingCall = cellTrue(r, 'Onboarding Call');
+  // Column holds a status (Invited / Scheduled / Completed); only Completed counts as having had the call
+  const hasOnboardingCall = (r['Onboarding Call'] || '').trim().toLowerCase() === 'completed';
   const hasConcierge      = hasSalesTouched || hasOnboardingCall;
   const hasInitiation     = cellNotBlank(r, 'Initiation Meeting Date');
   const hasDinner         = cellNotBlank(r, 'Date of First Dinner') || parseNum(r['No. of Dinners Registered']) > 0 || parseNum(r['No. of Dinners Attended']) > 0;
@@ -1535,21 +1536,28 @@ function renderEngagement() {
   const list = RAW.filter(r => !isNaN(new Date(r.startDate)) && (!bill || r.billing === bill));
   const winLbl = win ? `within ${win} days` : 'so far';
   const label = k => { const [y, mo] = k.split('-').map(Number); return new Date(y, mo - 1, 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }); };
+  const prods = win ? ENG_PRODUCTS.filter(p => p.days) : ENG_PRODUCTS;   // undated products only appear under Total
 
-  // KPIs: how fast members engage (medians are independent of the window switch)
+  // KPIs: how fast members engage, scoped to the selected window (members count once they've been here that long)
   const kEl = document.getElementById('eng-kpi-row'); kEl.innerHTML = '';
   const median = a => { if (!a.length) return null; const v = [...a].sort((x, y) => x - y), m = Math.floor(v.length / 2); return v.length % 2 ? v[m] : Math.round((v[m - 1] + v[m]) / 2); };
-  const kpis = ENG_PRODUCTS.filter(p => p.days).map(p => {
-    const dated = list.map(r => ({ r, d: p.days(r) })).filter(x => x.d !== null).map(x => ({ r: x.r, d: Math.max(0, x.d) }));
-    const med = median(dated.map(x => x.d));
+  const elig = win ? list.filter(r => r.daysIn >= win) : list;
+  const dated = ENG_PRODUCTS.filter(p => p.days);
+  const didIn = (r, p) => { const d = p.days(r); return d !== null && (!win || d <= win); };
+  const kpis = dated.map(p => {
+    const hits = elig.filter(r => didIn(r, p)).map(r => ({ r, d: Math.max(0, p.days(r)) }));
+    const med = median(hits.map(x => x.d));
     return { label: `Median Days to First ${p.label.replace('Learn ', '')}`, val: med === null ? '—' : med + 'd',
-      sub: `${dated.length} members who did it`, rows: dated.map(x => x.r) };
+      sub: `${hits.length} who did it ${winLbl}`, rows: hits.map(x => x.r) };
   });
-  const el30 = list.filter(r => r.daysIn >= 30);
-  const fast = el30.filter(r => ENG_PRODUCTS.some(p => p.days && (() => { const d = p.days(r); return d !== null && d <= 30; })()));
-  const none = list.filter(r => !ENG_PRODUCTS.some(p => p.did(r)));
-  kpis.push({ label: 'Engaged in First 30 Days', val: el30.length ? Math.round(fast.length / el30.length * 100) + '%' : '—', sub: `Initiation, dinner or course · ${fast.length} of ${el30.length}`, rows: fast });
-  kpis.push({ label: 'No Product Used Yet', val: none.length, sub: `${list.length ? Math.round(none.length / list.length * 100) : 0}% of ${billLbl} members`, rows: none, cls: 'c-pink' });
+  // Total uses every product (incl. undated Onboarding/Slack); windows can only use dated products
+  const engaged = elig.filter(r => win ? dated.some(p => didIn(r, p)) : ENG_PRODUCTS.some(p => p.did(r)));
+  const none = elig.filter(r => !engaged.includes(r));
+  const pctOf = (a, b) => b.length ? Math.round(a.length / b.length * 100) : 0;
+  kpis.push({ label: win ? `Engaged in First ${win} Days` : 'Engaged So Far', val: elig.length ? pctOf(engaged, elig) + '%' : '—',
+    sub: `${win ? 'Initiation, dinner or course' : 'Any product'} · ${engaged.length} of ${elig.length}`, rows: engaged });
+  kpis.push({ label: win ? `No Product in First ${win} Days` : 'No Product Used Yet', val: none.length,
+    sub: `${pctOf(none, elig)}% of ${elig.length} ${billLbl} members`, rows: none, cls: 'c-pink' });
   kpis.forEach(k => {
     const div = document.createElement('div');
     div.className = 'kpi';
@@ -1583,15 +1591,15 @@ function renderEngagement() {
     return `<td class="coh-cell${partial ? ' partial' : ''}" data-id="${id}" style="background-color:rgb(${rgb});color:${t > 0.55 ? '#180A5C' : '#F4E0FA'};">${c.pct}%</td>`;
   };
 
-  let html = '<thead><tr><th class="coh-left">Joined</th><th>Members</th>' + ENG_PRODUCTS.map(p => `<th>${p.label}</th>`).join('') + '</tr></thead><tbody>';
+  let html = '<thead><tr><th class="coh-left">Joined</th><th>Members</th>' + prods.map(p => `<th>${p.label}</th>`).join('') + '</tr></thead><tbody>';
   keys.forEach(k => {
     const g = groups[k];
     html += `<tr><td class="coh-name coh-left">${label(k)}</td><td class="coh-n">${g.length}</td>` +
-      ENG_PRODUCTS.map(p => cellHtml(k + '|' + p.key, g, p, g.length)).join('') + '</tr>';
+      prods.map(p => cellHtml(k + '|' + p.key, g, p, g.length)).join('') + '</tr>';
   });
   if (keys.length) html += `<tr class="eng-total"><td class="coh-name coh-left">All cohorts</td><td class="coh-n">${list.length}</td>` +
-    ENG_PRODUCTS.map(p => cellHtml('all|' + p.key, list, p, list.length)).join('') + '</tr>';
-  else html += `<tr><td colspan="${ENG_PRODUCTS.length + 2}" style="padding:24px;color:var(--text-muted);">No members match this filter.</td></tr>`;
+    prods.map(p => cellHtml('all|' + p.key, list, p, list.length)).join('') + '</tr>';
+  else html += `<tr><td colspan="${prods.length + 2}" style="padding:24px;color:var(--text-muted);">No members match this filter.</td></tr>`;
   html += '</tbody>';
   const tbl = document.getElementById('eng-tbl');
   tbl.innerHTML = html;
